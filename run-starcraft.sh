@@ -8,7 +8,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 export WINEPREFIX="$SCRIPT_DIR/.wine"
-export WINEARCH=win32
+export WINEARCH=win64
 export DISPLAY=:0
 export WINEDLLOVERRIDES="mscoree,mshtml="
 export WINEDEBUG=-all
