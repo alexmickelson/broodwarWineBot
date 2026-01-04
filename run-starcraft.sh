@@ -1,5 +1,5 @@
 #!/usr/bin/env nix-shell
-#! nix-shell -i bash -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixos-23.05.tar.gz -p wineWowPackages.stable
+#! nix-shell -i bash -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixos-24.11.tar.gz -p wineWowPackages.stable
 
 wine --version
 
