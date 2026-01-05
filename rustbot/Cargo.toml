@@ -5,6 +5,9 @@ edition = "2021"
 
 [dependencies]
 rsbwapi = "3.6.3"
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
 
 [profile.release]
 opt-level = 3
