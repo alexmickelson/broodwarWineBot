@@ -30,6 +30,13 @@ SC_WIN_PATH="$(winepath -w "$INSTALL_DIR" 2>/dev/null || echo "Z:${INSTALL_DIR}"
 
 
 configure_registry() {
+    # Check if registry is already configured
+    if wine REG QUERY "HKEY_LOCAL_MACHINE\\SOFTWARE\\Blizzard Entertainment\\Starcraft" /v InstallPath >/dev/null 2>&1; then
+        echo "Registry already configured, skipping..."
+        return
+    fi
+    
+    echo "Configuring registry..."
     # Core registry entries
     wine REG ADD "HKEY_LOCAL_MACHINE\\SOFTWARE\\Blizzard Entertainment\\Starcraft" \
         /v InstallPath /t REG_EXPAND_SZ /d "${SC_WIN_PATH}" /f 2>/dev/null || true
