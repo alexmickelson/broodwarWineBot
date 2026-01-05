@@ -1,0 +1,34 @@
+{
+  "files.watcherExclude": {
+    "**/target/**": true,
+    "**/node_modules/**": true,
+    "**/.git/**": true,
+    "**/wine/**": true,
+    "**/.wine/**": true,
+    "**/.wine": true,
+    "**/bin_linux/**": true,
+    "**/bin_linux": true,
+    "**/starcraft/**": true,
+    "**/starcraft": true
+  },
+  "search.exclude": {
+    "**/target/**": true,
+    "**/node_modules/**": true,
+    "**/wine/**": true,
+    "**/.wine/**": true,
+    "**/bin_linux/**": true,
+    "**/starcraft/**": true
+  },
+  "rust-analyzer.files.exclude": [
+    "starcraft",
+    ".wine",
+    "bin_linux",
+    "rustbot/target",
+    "starcraft/",
+    ".wine/",
+    "bin_linux/",
+    "rustbot/target/",
+    ".git/",
+    ".git"
+  ]
+}

@@ -1,0 +1,11 @@
+[package]
+name = "rustbot"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rsbwapi = "3.6.3"
+
+[profile.release]
+opt-level = 3
+lto = true

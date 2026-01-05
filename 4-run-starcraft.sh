@@ -5,6 +5,13 @@ wine --version
 
 set -e
 
+# Parse command line arguments
+USE_RUST_BOT=false
+if [ "$1" = "--rust" ]; then
+    USE_RUST_BOT=true
+    echo "Using Rust bot"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 export WINEPREFIX="$SCRIPT_DIR/.wine"
@@ -54,11 +61,19 @@ XVFB_PID=$!
 
 configure_registry
 
-echo "Starting StarterBot..."
-cd "$SCRIPT_DIR/bin_linux"
-wine StarterBot.exe &
-BOT_PID=$!
-echo "StarterBot started (PID: $BOT_PID)"
+if [ "$USE_RUST_BOT" = true ]; then
+    echo "Starting RustBot..."
+    cd "$SCRIPT_DIR/rustbot/target/x86_64-pc-windows-gnu/debug"
+    wine rustbot.exe &
+    BOT_PID=$!
+    echo "RustBot started (PID: $BOT_PID)"
+else
+    echo "Starting StarterBot..."
+    cd "$SCRIPT_DIR/bin_linux"
+    wine StarterBot.exe &
+    BOT_PID=$!
+    echo "StarterBot started (PID: $BOT_PID)"
+fi
 
 echo "Launching StarCraft with BWAPI via Chaoslauncher..."
 cd "$SCRIPT_DIR/starcraft/BWAPI/Chaoslauncher"
