@@ -16,9 +16,7 @@ cargo build --target x86_64-pc-windows-gnu
 
 # Check if build was successful
 if [ -f "target/x86_64-pc-windows-gnu/debug/rustbot.exe" ]; then
-    echo "Build successful!"
-    ls -lh target/x86_64-pc-windows-gnu/debug/rustbot.exe
-    file target/x86_64-pc-windows-gnu/debug/rustbot.exe
+    echo "Build successful: target/x86_64-pc-windows-gnu/debug/rustbot.exe"
 else
     echo "Build failed!"
     exit 1
