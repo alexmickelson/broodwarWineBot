@@ -1,4 +1,16 @@
 {
+  "files.exclude": {
+    "**/target/**": true,
+    "**/starcraft/**": true,
+    "**/starcraft": true,
+    "**/.wine/**": true,
+    "**/.wine": true,
+    "**/wine/**": true,
+    "**/bin_linux/**": true,
+    "**/bin_linux": true,
+    "**/.direnv/**": true,
+    "**/.direnv": true
+  },
   "files.watcherExclude": {
     "**/target/**": true,
     "**/node_modules/**": true,
@@ -9,7 +21,9 @@
     "**/bin_linux/**": true,
     "**/bin_linux": true,
     "**/starcraft/**": true,
-    "**/starcraft": true
+    "**/starcraft": true,
+    "**/.direnv/**": true,
+    "**/.direnv": true
   },
   "search.exclude": {
     "**/target/**": true,
@@ -17,7 +31,8 @@
     "**/wine/**": true,
     "**/.wine/**": true,
     "**/bin_linux/**": true,
-    "**/starcraft/**": true
+    "**/starcraft/**": true,
+    "**/.direnv/**": true
   },
   "rust-analyzer.files.exclude": [
     "starcraft",
@@ -29,6 +44,10 @@
     "bin_linux/",
     "rustbot/target/",
     ".git/",
-    ".git"
-  ]
+    ".git",
+    ".direnv",
+    ".direnv/"
+  ],
+  "rust-analyzer.linkedProjects": ["rustbot/Cargo.toml"],
+  "rust-analyzer.cargo.target": "x86_64-pc-windows-gnu"
 }

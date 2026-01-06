@@ -45,12 +45,12 @@
           
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           
-          # Bindgen configuration for C++ includes
+          # Bindgen configuration for MinGW C++ includes
           BINDGEN_EXTRA_CLANG_ARGS = pkgs.lib.concatStringsSep " " [
-            "-I${pkgs.pkgsCross.mingwW64.stdenv.cc}/x86_64-w64-mingw32/include/c++"
-            "-I${pkgs.pkgsCross.mingwW64.stdenv.cc}/x86_64-w64-mingw32/include/c++/x86_64-w64-mingw32"
+            "-I${pkgs.pkgsCross.mingwW64.stdenv.cc}/x86_64-w64-mingw32/sys-include/c++"
+            "-I${pkgs.pkgsCross.mingwW64.stdenv.cc}/x86_64-w64-mingw32/sys-include/c++/x86_64-w64-mingw32"
+            "-I${pkgs.pkgsCross.mingwW64.stdenv.cc}/x86_64-w64-mingw32/sys-include"
             "-I${pkgs.pkgsCross.mingwW64.stdenv.cc}/x86_64-w64-mingw32/include"
-            "-I${pkgs.pkgsCross.mingwW64.windows.mingw_w64_headers}/include"
           ];
         };
 
