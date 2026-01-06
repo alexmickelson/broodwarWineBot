@@ -38,16 +38,13 @@
     "starcraft",
     ".wine",
     "bin_linux",
-    "rustbot/target",
-    "starcraft/",
-    ".wine/",
-    "bin_linux/",
-    "rustbot/target/",
-    ".git/",
-    ".git",
+    "src",
     ".direnv",
-    ".direnv/"
+    "wine"
   ],
   "rust-analyzer.linkedProjects": ["rustbot/Cargo.toml"],
-  "rust-analyzer.cargo.target": "x86_64-pc-windows-gnu"
+  "rust-analyzer.cargo.target": "x86_64-pc-windows-gnu",
+  "rust-analyzer.cargo.features": "all",
+  "rust-analyzer.check.allTargets": false,
+  "rust-analyzer.check.features": "all"
 }

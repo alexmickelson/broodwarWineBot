@@ -1,4 +1,4 @@
-use crate::status::{GameStatus, MapData, ResourceInfo, SharedStatus, UnitInfo, WorkerStatus};
+use crate::status::{MapData, ResourceInfo, SharedStatus, UnitInfo, WorkerStatus};
 use rsbwapi::*;
 
 /// A basic Broodwar bot using rsbwapi
@@ -60,7 +60,7 @@ impl RustBot {
                     x: x as i32,
                     y: y as i32,
                 };
-                
+
                 walkability[y][x] = game.is_walkable(walk_pos);
                 explored[y][x] = game.is_explored(walk_pos.to_tile_position());
             }
@@ -68,7 +68,7 @@ impl RustBot {
 
         // Collect unit information
         let mut units = Vec::new();
-        
+
         if let Some(self_player) = game.self_() {
             // Add allied units
             for unit in self_player.get_units() {
@@ -97,7 +97,7 @@ impl RustBot {
 
         // Collect resource information
         let mut resources = Vec::new();
-        
+
         // Minerals
         for mineral in game.get_static_minerals() {
             if mineral.exists() {
@@ -317,7 +317,7 @@ impl AiModule for RustBot {
 
         // Update worker status and map data for web dashboard
         self.update_worker_status(game);
-        
+
         // Update map data every 24 frames (about once per second in normal speed)
         if game.get_frame_count() % 24 == 0 {
             self.update_map_data(game);

@@ -3,8 +3,10 @@
 target = "x86_64-pc-windows-gnu"
 
 [target.x86_64-pc-windows-gnu]
+# Linker will be set by Nix flake via CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER
+# Falls back to system linker if not in Nix shell
 linker = "x86_64-w64-mingw32-gcc"
 
 [env]
-# Add GCC intrinsics headers path for bindgen when cross-compiling to Windows
-BINDGEN_EXTRA_CLANG_ARGS_x86_64-pc-windows-gnu = "-I/usr/lib/gcc/x86_64-w64-mingw32/13-win32/include"
+# TARGET environment variable helps bindgen know we're cross-compiling
+TARGET = "x86_64-pc-windows-gnu"

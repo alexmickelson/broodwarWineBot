@@ -89,7 +89,7 @@ fn generate_map_svg(map_data: &MapData) -> String {
 
     // Draw background (unexplored areas)
     svg.push_str(&format!(
-        r#"<rect width="{}" height="{}" fill="#000000"/>"#,
+        "<rect width=\"{}\" height=\"{}\" fill=\"#000000\"/>",
         svg_width, svg_height
     ));
 
@@ -131,15 +131,15 @@ fn generate_map_svg(map_data: &MapData) -> String {
     // Draw resources
     for resource in &map_data.resources {
         let color = match resource.resource_type.as_str() {
-            "minerals" => "#00FFFF",  // Cyan for minerals
-            "gas" => "#00FF00",        // Green for gas
-            _ => "#FFFF00",            // Yellow for other
+            "minerals" => "#00FFFF", // Cyan for minerals
+            "gas" => "#00FF00",      // Green for gas
+            _ => "#FFFF00",          // Yellow for other
         };
 
         svg.push_str(&format!(
             r#"<circle cx="{}" cy="{}" r="{}" fill="{}" opacity="0.8"/>"#,
-            resource.x / 8 * scale + scale / 2,
-            resource.y / 8 * scale + scale / 2,
+            resource.x / 8 * (scale as i32) + (scale / 2) as i32,
+            resource.y / 8 * (scale as i32) + (scale / 2) as i32,
             scale * 2,
             color
         ));
@@ -154,9 +154,9 @@ fn generate_map_svg(map_data: &MapData) -> String {
         };
 
         svg.push_str(&format!(
-            r#"<circle cx="{}" cy="{}" r="{}" fill="{}" stroke="#FFFFFF" stroke-width="0.5"/>"#,
-            unit.x / 8 * scale,
-            unit.y / 8 * scale,
+            "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\" stroke=\"#FFFFFF\" stroke-width=\"0.5\"/>",
+            unit.x / 8 * (scale as i32),
+            unit.y / 8 * (scale as i32),
             scale,
             color
         ));
@@ -343,9 +343,9 @@ async fn status_handler(state: axum::extract::State<SharedStatus>) -> Html<Strin
     </div>
 </body>
 </html>"#,
-        status.worker_status.total, 
-        status.worker_status.gathering, 
-        status.worker_status.idle, 
+        status.worker_status.total,
+        status.worker_status.gathering,
+        status.worker_status.idle,
         status.worker_status.building,
         map_svg
     );

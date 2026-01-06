@@ -18,16 +18,21 @@
           inherit system overlays;
         };
 
-        # Rust toolchain with Windows target
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           targets = [ "x86_64-pc-windows-gnu" ];
+          extensions = [ "rust-src" ];
         };
 
-        # Build inputs for cross-compilation
+        mingwPkgs = pkgs.pkgsCross.mingwW64;
+        mingwCC = mingwPkgs.stdenv.cc;
+        
+        # Get GCC version dynamically
+        gccVersion = mingwPkgs.stdenv.cc.cc.version;
+        
         buildInputs = with pkgs; [
           rustToolchain
-          pkgsCross.mingwW64.stdenv.cc
-          pkgsCross.mingwW64.windows.pthreads
+          mingwCC
+          mingwPkgs.windows.pthreads
         ];
 
         nativeBuildInputs = with pkgs; [
@@ -36,22 +41,32 @@
           llvmPackages.libclang
         ];
 
-        # Environment variables for cross-compilation
         shellEnv = {
-          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "${pkgs.pkgsCross.mingwW64.stdenv.cc}/bin/x86_64-w64-mingw32-gcc";
-          CC_x86_64_pc_windows_gnu = "${pkgs.pkgsCross.mingwW64.stdenv.cc}/bin/x86_64-w64-mingw32-gcc";
-          CXX_x86_64_pc_windows_gnu = "${pkgs.pkgsCross.mingwW64.stdenv.cc}/bin/x86_64-w64-mingw32-g++";
-          AR_x86_64_pc_windows_gnu = "${pkgs.pkgsCross.mingwW64.stdenv.cc}/bin/x86_64-w64-mingw32-ar";
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "${mingwCC}/bin/x86_64-w64-mingw32-gcc";
+          CC_x86_64_pc_windows_gnu = "${mingwCC}/bin/x86_64-w64-mingw32-gcc";
+          CXX_x86_64_pc_windows_gnu = "${mingwCC}/bin/x86_64-w64-mingw32-g++";
+          AR_x86_64_pc_windows_gnu = "${mingwCC}/bin/x86_64-w64-mingw32-ar";
           
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           
-          # Bindgen configuration for MinGW C++ includes
+          # Bindgen configuration for MinGW cross-compilation
+          # Tell bindgen to use mingw headers, not Linux headers
           BINDGEN_EXTRA_CLANG_ARGS = pkgs.lib.concatStringsSep " " [
-            "-I${pkgs.pkgsCross.mingwW64.stdenv.cc}/x86_64-w64-mingw32/sys-include/c++"
-            "-I${pkgs.pkgsCross.mingwW64.stdenv.cc}/x86_64-w64-mingw32/sys-include/c++/x86_64-w64-mingw32"
-            "-I${pkgs.pkgsCross.mingwW64.stdenv.cc}/x86_64-w64-mingw32/sys-include"
-            "-I${pkgs.pkgsCross.mingwW64.stdenv.cc}/x86_64-w64-mingw32/include"
+            "--target=x86_64-w64-mingw32"
+            # Use -isystem to add includes with lower priority than -I
+            # This allows the mingw headers to find clang intrinsics
+            "-isystem${pkgs.llvmPackages.libclang.lib}/lib/clang/${pkgs.llvmPackages.libclang.version}/include"
+            "-isystem${mingwCC.cc}/include/c++/${gccVersion}"
+            "-isystem${mingwCC.cc}/include/c++/${gccVersion}/x86_64-w64-mingw32"
+            "-isystem${mingwCC.cc}/include/c++/${gccVersion}/backward"
+            "-isystem${mingwPkgs.windows.mingw_w64_headers}/include"
+            "-isystem${mingwPkgs.windows.pthreads}/include"
+            "-D_WIN32"
+            "-D_WIN64"
           ];
+          
+          # Set target for bindgen
+          TARGET = "x86_64-pc-windows-gnu";
         };
 
         # Build script
@@ -70,7 +85,6 @@
           fi
         '';
 
-        # Debug build script
         buildDebugScript = pkgs.writeShellScriptBin "build-rustbot-debug" ''
           set -e
           cd rustbot
@@ -86,14 +100,12 @@
           fi
         '';
 
-        # Clean script
         cleanScript = pkgs.writeShellScriptBin "clean-rustbot" ''
           cd rustbot
           cargo clean
           echo "✓ Cleaned build artifacts"
         '';
 
-        # Check script
         checkScript = pkgs.writeShellScriptBin "check-rustbot" ''
           cd rustbot
           cargo check --target x86_64-pc-windows-gnu
