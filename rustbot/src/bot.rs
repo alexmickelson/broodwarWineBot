@@ -1,48 +1,14 @@
-use crate::status::{MapData, ResourceInfo, SharedStatus, UnitInfo, WorkerStatus};
+use crate::status::{MapData, ResourceInfo, SharedStatus, UnitInfo};
+use crate::utils::worker_management;
 use rsbwapi::*;
 
-/// A basic Broodwar bot using rsbwapi
 pub struct RustBot {
-    mineral_target: Option<UnitId>,
     status: SharedStatus,
 }
 
 impl RustBot {
     pub fn new(status: SharedStatus) -> Self {
-        Self {
-            mineral_target: None,
-            status,
-        }
-    }
-
-    fn update_worker_status(&self, game: &Game) {
-        let self_player = match game.self_() {
-            Some(p) => p,
-            None => return,
-        };
-
-        let my_units = self_player.get_units();
-        let workers: Vec<_> = my_units
-            .iter()
-            .filter(|u| u.get_type().is_worker())
-            .collect();
-
-        let total = workers.len();
-        let gathering = workers
-            .iter()
-            .filter(|w| w.is_gathering_gas() || w.is_gathering_minerals())
-            .count();
-        let idle = workers.iter().filter(|w| w.is_idle()).count();
-        let building = workers.iter().filter(|w| w.is_constructing()).count();
-
-        if let Ok(mut status) = self.status.lock() {
-            status.worker_status = WorkerStatus {
-                total,
-                gathering,
-                idle,
-                building,
-            };
-        }
+        Self { status }
     }
 
     fn update_map_data(&self, game: &Game) {
@@ -132,38 +98,6 @@ impl RustBot {
                 units,
                 resources,
             };
-        }
-    }
-
-    /// Manages worker gathering behavior
-    fn manage_workers(&mut self, game: &Game) {
-        let self_player = match game.self_() {
-            Some(p) => p,
-            None => return,
-        };
-
-        let my_units = self_player.get_units();
-
-        // Find all worker units
-        let workers: Vec<_> = my_units
-            .iter()
-            .filter(|u| u.get_type().is_worker() && u.is_idle())
-            .collect();
-
-        // Get available minerals
-        let static_minerals = game.get_static_minerals();
-        let minerals: Vec<_> = static_minerals
-            .iter()
-            .filter(|m| m.exists() && m.get_resources() > 0)
-            .collect();
-
-        // Assign idle workers to gather minerals
-        for worker in workers {
-            if let Some(mineral) = minerals.first() {
-                if let Err(e) = worker.gather(mineral) {
-                    game.draw_text_screen((10, 50), &format!("Worker error: {:?}", e));
-                }
-            }
         }
     }
 
@@ -312,14 +246,13 @@ impl AiModule for RustBot {
 
     fn on_frame(&mut self, game: &Game) {
         self.draw_debug_info(game);
-        self.manage_workers(game);
+        worker_management::draw_worker_resource_lines(game);
+        worker_management::manage_workers(game);
         self.manage_production(game);
-
-        // Update worker status and map data for web dashboard
-        self.update_worker_status(game);
 
         // Update map data every 24 frames (about once per second in normal speed)
         if game.get_frame_count() % 24 == 0 {
+            worker_management::update_worker_status(game, &self.status);
             self.update_map_data(game);
         }
     }

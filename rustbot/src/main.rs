@@ -1,5 +1,7 @@
 mod bot;
+mod map;
 mod status;
+mod utils;
 
 use bot::RustBot;
 use status::{create_shared_status, start_server};

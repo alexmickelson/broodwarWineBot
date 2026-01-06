@@ -73,31 +73,13 @@
         buildScript = pkgs.writeShellScriptBin "build-rustbot" ''
           set -e
           cd rustbot
-          
-          echo "Building Rust bot for Windows (x86_64-pc-windows-gnu)..."
           cargo build --target x86_64-pc-windows-gnu --release
-          
-          if [ -f "target/x86_64-pc-windows-gnu/release/rustbot.exe" ]; then
-            echo "✓ Build successful: rustbot/target/x86_64-pc-windows-gnu/release/rustbot.exe"
-          else
-            echo "✗ Build failed!"
-            exit 1
-          fi
         '';
 
         buildDebugScript = pkgs.writeShellScriptBin "build-rustbot-debug" ''
           set -e
           cd rustbot
-          
-          echo "Building Rust bot for Windows (debug)..."
           cargo build --target x86_64-pc-windows-gnu
-          
-          if [ -f "target/x86_64-pc-windows-gnu/debug/rustbot.exe" ]; then
-            echo "✓ Build successful: rustbot/target/x86_64-pc-windows-gnu/debug/rustbot.exe"
-          else
-            echo "✗ Build failed!"
-            exit 1
-          fi
         '';
 
         cleanScript = pkgs.writeShellScriptBin "clean-rustbot" ''

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RustBot Status</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>🤖 RustBot Status Dashboard</h1>
+
+      <div class="connection-status">
+        <span id="connection-indicator" class="status-dot disconnected"></span>
+        <span id="connection-text">Connecting...</span>
+      </div>
+
+      <h2>Worker Status</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Workers</div>
+          <div class="stat-number" id="total-workers">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Gathering</div>
+          <div class="stat-number" id="gathering-workers">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Idle</div>
+          <div class="stat-number" id="idle-workers">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Building</div>
+          <div class="stat-number" id="building-workers">0</div>
+        </div>
+      </div>
+
+      <h2>Map Visualization</h2>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background: #2a4a2a"></div>
+          <span>Walkable Terrain</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #4a4a4a"></div>
+          <span>Unwalkable Terrain</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #000000"></div>
+          <span>Unexplored</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #0000ff"></div>
+          <span>Allied Units</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #ff0000"></div>
+          <span>Enemy Units</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #00ffff"></div>
+          <span>Minerals</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #00ff00"></div>
+          <span>Gas</span>
+        </div>
+      </div>
+      <div class="map-container" id="map-container">
+        <div class="loading">Waiting for map data...</div>
+      </div>
+
+      <div class="refresh-note">Live updates via WebSocket</div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
