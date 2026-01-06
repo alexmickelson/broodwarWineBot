@@ -51,3 +51,8 @@ Starcraft.zip
 
 bin_linux/StarterBot.exe
 bin_linux/
+# Nix
+result
+result-*
+.direnv/
+.envrc.cache

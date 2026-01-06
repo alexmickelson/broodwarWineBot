@@ -1,4 +1,4 @@
-use crate::status::{SharedStatus, WorkerStatus};
+use crate::status::{GameStatus, MapData, ResourceInfo, SharedStatus, UnitInfo, WorkerStatus};
 use rsbwapi::*;
 
 /// A basic Broodwar bot using rsbwapi
@@ -36,11 +36,101 @@ impl RustBot {
         let building = workers.iter().filter(|w| w.is_constructing()).count();
 
         if let Ok(mut status) = self.status.lock() {
-            *status = WorkerStatus {
+            status.worker_status = WorkerStatus {
                 total,
                 gathering,
                 idle,
                 building,
+            };
+        }
+    }
+
+    fn update_map_data(&self, game: &Game) {
+        let map_width = game.map_width() as usize * 4; // Convert from build tiles to walk tiles
+        let map_height = game.map_height() as usize * 4;
+
+        // Initialize walkability and explored grids
+        let mut walkability = vec![vec![false; map_width]; map_height];
+        let mut explored = vec![vec![false; map_width]; map_height];
+
+        // Sample walkability and exploration data
+        for y in 0..map_height {
+            for x in 0..map_width {
+                let walk_pos = WalkPosition {
+                    x: x as i32,
+                    y: y as i32,
+                };
+                
+                walkability[y][x] = game.is_walkable(walk_pos);
+                explored[y][x] = game.is_explored(walk_pos.to_tile_position());
+            }
+        }
+
+        // Collect unit information
+        let mut units = Vec::new();
+        
+        if let Some(self_player) = game.self_() {
+            // Add allied units
+            for unit in self_player.get_units() {
+                units.push(UnitInfo {
+                    x: unit.get_position().x,
+                    y: unit.get_position().y,
+                    unit_type: format!("{:?}", unit.get_type()),
+                    is_ally: true,
+                });
+            }
+        }
+
+        // Add enemy units
+        for player in game.enemies() {
+            for unit in player.get_units() {
+                if unit.exists() {
+                    units.push(UnitInfo {
+                        x: unit.get_position().x,
+                        y: unit.get_position().y,
+                        unit_type: format!("{:?}", unit.get_type()),
+                        is_ally: false,
+                    });
+                }
+            }
+        }
+
+        // Collect resource information
+        let mut resources = Vec::new();
+        
+        // Minerals
+        for mineral in game.get_static_minerals() {
+            if mineral.exists() {
+                resources.push(ResourceInfo {
+                    x: mineral.get_position().x,
+                    y: mineral.get_position().y,
+                    resource_type: "minerals".to_string(),
+                    amount: mineral.get_resources(),
+                });
+            }
+        }
+
+        // Geysers
+        for geyser in game.get_static_geysers() {
+            if geyser.exists() {
+                resources.push(ResourceInfo {
+                    x: geyser.get_position().x,
+                    y: geyser.get_position().y,
+                    resource_type: "gas".to_string(),
+                    amount: geyser.get_resources(),
+                });
+            }
+        }
+
+        // Update shared status
+        if let Ok(mut status) = self.status.lock() {
+            status.map_data = MapData {
+                width: map_width,
+                height: map_height,
+                walkability,
+                explored,
+                units,
+                resources,
             };
         }
     }
@@ -225,8 +315,13 @@ impl AiModule for RustBot {
         self.manage_workers(game);
         self.manage_production(game);
 
-        // Update worker status for web dashboard
+        // Update worker status and map data for web dashboard
         self.update_worker_status(game);
+        
+        // Update map data every 24 frames (about once per second in normal speed)
+        if game.get_frame_count() % 24 == 0 {
+            self.update_map_data(game);
+        }
     }
 
     fn on_unit_create(&mut self, _game: &Game, unit: Unit) {
