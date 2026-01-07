@@ -1,4 +1,5 @@
 use crate::map::generate_map_svg;
+use crate::utils::game_status::{SharedStatus, WorkerAssignment, WorkerStatus};
 use axum::extract::ws::{Message, WebSocket};
 use axum::{
     extract::{State, WebSocketUpgrade},
@@ -8,7 +9,7 @@ use axum::{
 };
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
 use tokio::time::{interval, Duration};
 use tower_http::services::ServeDir;
 
@@ -16,40 +17,10 @@ use tower_http::services::ServeDir;
 pub use crate::map::{MapData, ResourceInfo, UnitInfo};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct WorkerStatus {
-    pub total: usize,
-    pub gathering: usize,
-    pub idle: usize,
-    pub building: usize,
-}
-
-impl Default for WorkerStatus {
-    fn default() -> Self {
-        Self {
-            total: 0,
-            gathering: 0,
-            idle: 0,
-            building: 0,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StatusUpdate {
     pub worker_status: WorkerStatus,
     pub map_svg: String,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct GameStatus {
-    pub worker_status: WorkerStatus,
-    pub map_data: MapData,
-}
-
-pub type SharedStatus = Arc<Mutex<GameStatus>>;
-
-pub fn create_shared_status() -> SharedStatus {
-    Arc::new(Mutex::new(GameStatus::default()))
+    pub worker_assignments: HashMap<usize, WorkerAssignment>,
 }
 
 async fn websocket_handler(
@@ -75,6 +46,7 @@ async fn handle_socket(socket: WebSocket, state: SharedStatus) {
                 StatusUpdate {
                     worker_status: status.worker_status.clone(),
                     map_svg,
+                    worker_assignments: status.worker_assignments.clone(),
                 }
             };
 
@@ -114,11 +86,10 @@ pub async fn start_server(status: SharedStatus) {
         .nest_service("/", ServeDir::new(web_dir))
         .with_state(status);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3333")
         .await
         .unwrap();
 
-    println!("Status server running on http://127.0.0.1:3000");
-
+    println!("Status server running on http://127.0.0.1:3333");
     axum::serve(listener, app).await.unwrap();
 }

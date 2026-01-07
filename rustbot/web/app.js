@@ -10,6 +10,11 @@ const totalWorkers = document.getElementById("total-workers");
 const gatheringWorkers = document.getElementById("gathering-workers");
 const idleWorkers = document.getElementById("idle-workers");
 const buildingWorkers = document.getElementById("building-workers");
+const assignedGathering = document.getElementById("assigned-gathering");
+const assignedScouting = document.getElementById("assigned-scouting");
+const assignedBuilding = document.getElementById("assigned-building");
+const totalAssignments = document.getElementById("total-assignments");
+const assignmentDetails = document.getElementById("assignment-details");
 
 function connect() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -61,6 +66,68 @@ function updateUI(data) {
     gatheringWorkers.textContent = data.worker_status.gathering;
     idleWorkers.textContent = data.worker_status.idle;
     buildingWorkers.textContent = data.worker_status.building;
+  }
+
+  // Update worker assignments
+  if (data.worker_assignments) {
+    const assignments = Object.values(data.worker_assignments);
+    const gatheringCount = assignments.filter(
+      (a) => a.assignment_type === "Gathering"
+    ).length;
+    const scoutingCount = assignments.filter(
+      (a) => a.assignment_type === "Scouting"
+    ).length;
+    const buildingCount = assignments.filter(
+      (a) => a.assignment_type === "Building"
+    ).length;
+
+    assignedGathering.textContent = gatheringCount;
+    assignedScouting.textContent = scoutingCount;
+    assignedBuilding.textContent = buildingCount;
+    totalAssignments.textContent = assignments.length;
+
+    // Show assignment details
+    let detailsHTML = '<div class="assignment-list">';
+    const assignmentEntries = Object.entries(data.worker_assignments);
+
+    if (assignmentEntries.length > 0) {
+      detailsHTML += "<h3>Assignment Details</h3>";
+      detailsHTML += '<div class="assignment-table">';
+
+      for (const [workerId, assignment] of assignmentEntries.slice(0, 20)) {
+        // Show first 20
+        const typeClass = assignment.assignment_type.toLowerCase();
+        let targetInfo = "";
+
+        if (assignment.target_unit) {
+          targetInfo = `→ Resource #${assignment.target_unit}`;
+        } else if (assignment.target_position) {
+          const [x, y] = assignment.target_position;
+          targetInfo = `→ Position (${x}, ${y})`;
+        }
+
+        detailsHTML += `
+          <div class="assignment-row ${typeClass}">
+            <span class="worker-id">Worker #${workerId}</span>
+            <span class="assignment-type">${assignment.assignment_type}</span>
+            <span class="assignment-target">${targetInfo}</span>
+          </div>
+        `;
+      }
+
+      if (assignmentEntries.length > 20) {
+        detailsHTML += `<div class="more-assignments">... and ${
+          assignmentEntries.length - 20
+        } more</div>`;
+      }
+
+      detailsHTML += "</div>";
+    } else {
+      detailsHTML += '<p class="no-assignments">No active assignments</p>';
+    }
+
+    detailsHTML += "</div>";
+    assignmentDetails.innerHTML = detailsHTML;
   }
 
   // Update map

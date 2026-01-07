@@ -95,7 +95,20 @@ echo "Configuring BWAPI at: $BWAPI_INI_PATH"
 # Create directory if it doesn't exist
 mkdir -p "$(dirname "$BWAPI_INI_PATH")"
 
-# Generate bwapi.ini content
+# Prepare conditional config lines
+if [ -n "$SEED_OVERRIDE" ]; then
+    SEED_LINE="seed_override = $SEED_OVERRIDE"
+else
+    SEED_LINE=";seed_override = 123456789"
+fi
+
+if [ -n "$SPEED_OVERRIDE" ]; then
+    SPEED_LINE="speed_override = $SPEED_OVERRIDE"
+else
+    SPEED_LINE=";speed_override = -1"
+fi
+
+# Generate bwapi.ini content in one go
 cat > "$BWAPI_INI_PATH" << EOF
 [ai]
 ; Paths and revisions for AI
@@ -274,29 +287,12 @@ screenshots = $SCREENSHOTS
 ;
 ; Note: This option affects both single AND multi-player modes (for game hosts only). This means that hosting a multi-player
 ; game with this option enabled will distribute this fixed seed to all other players in the game.
-EOF
-
-# Add seed_override if specified
-if [ -n "$SEED_OVERRIDE" ]; then
-    echo "seed_override = $SEED_OVERRIDE" >> "$BWAPI_INI_PATH"
-else
-    echo ";seed_override = 123456789" >> "$BWAPI_INI_PATH"
-fi
-
-cat >> "$BWAPI_INI_PATH" << EOF
+$SEED_LINE
 
 ; Speed override. This overrides the default game speed setting and prevents bots from changing the game speed.
 ; Enabling this option causes it to take effect. The value is the number of milliseconds per frame. A negative
 ; value uses the game's default speed value.
-EOF
-
-if [ -n "$SPEED_OVERRIDE" ]; then
-    echo "speed_override = $SPEED_OVERRIDE" >> "$BWAPI_INI_PATH"
-else
-    echo ";speed_override = -1" >> "$BWAPI_INI_PATH"
-fi
-
-cat >> "$BWAPI_INI_PATH" << EOF
+$SPEED_LINE
 
 ; drop_players = ON | OFF
 ; This specifies if BWAPI should drop other players from the game when the timeout dialog reaches 0. Players 
@@ -304,16 +300,3 @@ cat >> "$BWAPI_INI_PATH" << EOF
 ; will cause BWAPI to wait an infinite amount of time until the player reconnects.
 drop_players = $DROP_PLAYERS
 EOF
-
-echo "✓ BWAPI configuration written successfully"
-echo ""
-echo "Configuration summary:"
-echo "  Auto menu:      $AUTO_MENU"
-echo "  Map:            $MAP"
-echo "  Player race:    $PLAYER_RACE"
-echo "  Enemy count:    $ENEMY_COUNT"
-echo "  Enemy races:    ${COMPUTER_RACES[*]}"
-echo "  Game type:      $GAME_TYPE"
-echo "  Windowed:       $WINDOWED"
-echo "  Sound:          $SOUND"
-echo ""

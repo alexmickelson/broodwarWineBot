@@ -1,24 +1,25 @@
 mod bot;
 mod map;
-mod status;
+mod status_webserver;
 mod utils;
 
 use bot::RustBot;
-use status::{create_shared_status, start_server};
+use status_webserver::start_server;
+use std::sync::{Arc, Mutex};
+use utils::game_status::GameStatus;
 
 fn main() {
     println!("Starting RustBot...");
 
-    // Create shared status for web server
-    let status = create_shared_status();
-    let status_clone = status.clone();
+    let status = Arc::new(Mutex::new(GameStatus::default()));
 
-    // Start web server in a separate thread
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(start_server(status_clone));
+    std::thread::spawn({
+        let status = status.clone();
+        move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(start_server(status));
+        }
     });
 
-    // Start the bot
     rsbwapi::start(move |_game| RustBot::new(status.clone()));
 }

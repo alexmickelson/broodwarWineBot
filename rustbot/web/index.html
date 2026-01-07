@@ -8,7 +8,7 @@
   </head>
   <body>
     <div class="container">
-      <h1>🤖 RustBot Status Dashboard</h1>
+      <h1>RustBot Status Dashboard</h1>
 
       <div class="connection-status">
         <span id="connection-indicator" class="status-dot disconnected"></span>
@@ -34,6 +34,27 @@
           <div class="stat-number" id="building-workers">0</div>
         </div>
       </div>
+
+      <h2>Worker Assignments</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Assigned Gathering</div>
+          <div class="stat-number" id="assigned-gathering">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Assigned Scouting</div>
+          <div class="stat-number" id="assigned-scouting">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Assigned Building</div>
+          <div class="stat-number" id="assigned-building">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Assignments</div>
+          <div class="stat-number" id="total-assignments">0</div>
+        </div>
+      </div>
+      <div id="assignment-details" class="assignment-details"></div>
 
       <h2>Map Visualization</h2>
       <div class="legend">

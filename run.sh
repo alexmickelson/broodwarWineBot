@@ -39,30 +39,13 @@ echo "Starting Xvfb virtual display..."
 Xvfb :0 -auth ~/.Xauthority -screen 0 640x480x24 > /dev/null 2>&1 &
 XVFB_PID=$!
 
-
-for script in "${SCRIPTS_PATH}"/[0-9]-*.sh; do
-    if [ -f "$script" ]; then
-        script_name=$(basename "$script")
-        echo ""
-        echo "Running: $script_name"
-        echo "-----------------------------------------"
-        chmod +x "$script"
-        "$script"
-        exit_code=$?
-        if [ $exit_code -ne 0 ]; then
-            echo ""
-            echo "❌ Error: $script_name failed with exit code $exit_code"
-            exit $exit_code
-        fi
-        echo ""
-    fi
-done
-
-
-
+cd scripts
+    ./4-configure-bwapi.sh
+cd ..
 
 echo "Starting RustBot..."
 cd "$SCRIPT_DIR/rustbot"
+
 wine target/x86_64-pc-windows-gnu/debug/rustbot.exe &
 BOT_PID=$!
 echo "RustBot started (PID: $BOT_PID)"

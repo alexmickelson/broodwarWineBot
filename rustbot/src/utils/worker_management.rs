@@ -1,247 +1,233 @@
+use crate::utils::game_status::{
+    SharedStatus, WorkerAssignment, WorkerAssignmentType, WorkerStatus,
+};
 use rsbwapi::*;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorkerAssignmentType {
-    Gathering,
-    Building,
-    Scouting,
+fn get_my_workers(game: &Game) -> Vec<Unit> {
+    let self_player = match game.self_() {
+        Some(p) => p,
+        None => return Vec::new(),
+    };
+
+    self_player
+        .get_units()
+        .into_iter()
+        .filter(|u| u.get_type().is_worker())
+        .collect()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct WorkerAssignment {
-    pub assignment_type: WorkerAssignmentType,
-    pub target_unit: Option<usize>,
-    pub target_position: Option<Position>,
-}
+pub fn update_assignments(game: &Game, status: &SharedStatus) {
+    let my_units = get_my_workers(game);
+    let workers: Vec<_> = my_units.iter().collect();
 
-impl WorkerAssignment {
-    pub fn gathering(target_unit: usize) -> Self {
-        Self {
-            assignment_type: WorkerAssignmentType::Gathering,
-            target_unit: Some(target_unit),
-            target_position: None,
-        }
-    }
+    // Update worker stats
+    let total = workers.len();
+    let gathering = workers
+        .iter()
+        .filter(|w| w.is_gathering_gas() || w.is_gathering_minerals())
+        .count();
+    let idle = workers.iter().filter(|w| w.is_idle()).count();
+    let building = workers.iter().filter(|w| w.is_constructing()).count();
 
-    pub fn building(target_unit: Option<usize>, target_position: Position) -> Self {
-        Self {
-            assignment_type: WorkerAssignmentType::Building,
-            target_unit,
-            target_position: Some(target_position),
-        }
-    }
-
-    pub fn scouting(target_position: Position) -> Self {
-        Self {
-            assignment_type: WorkerAssignmentType::Scouting,
-            target_unit: None,
-            target_position: Some(target_position),
-        }
-    }
-}
-
-pub struct WorkerManager {
-    assignments: HashMap<usize, WorkerAssignment>,
-}
-
-impl WorkerManager {
-    pub fn new() -> Self {
-        Self {
-            assignments: HashMap::new(),
-        }
-    }
-
-    fn get_my_workers(&self, game: &Game) -> Vec<Unit> {
-        let self_player = match game.self_() {
-            Some(p) => p,
-            None => return Vec::new(),
+    let mut assignments = if let Ok(mut status) = status.lock() {
+        status.worker_status = WorkerStatus {
+            total,
+            gathering,
+            idle,
+            building,
         };
+        status.worker_assignments.clone()
+    } else {
+        return;
+    };
 
-        self_player
-            .get_units()
-            .into_iter()
-            .filter(|u| u.get_type().is_worker())
-            .collect()
-    }
+    remove_dead_workers(&mut assignments, &workers);
 
-    pub fn update_assignments(&mut self, game: &Game) {
-        let my_units = self.get_my_workers(game);
-        let workers: Vec<_> = my_units.iter().collect();
+    let static_minerals = game.get_static_minerals();
+    let minerals: Vec<_> = static_minerals
+        .iter()
+        .filter(|m: &&Unit| m.exists() && m.get_resources() > 0)
+        .collect();
 
-        self.remove_dead_workers(&workers);
+    let unassigned_idle_workers: Vec<_> = workers
+        .iter()
+        .filter(|w| w.is_idle() && !assignments.contains_key(&w.get_id()))
+        .copied()
+        .collect();
 
-        let static_minerals = game.get_static_minerals();
-        let minerals: Vec<_> = static_minerals
-            .iter()
-            .filter(|m: &&Unit| m.exists() && m.get_resources() > 0)
-            .collect();
+    let mut mineral_worker_count = count_workers_per_resource(&assignments);
 
-        let unassigned_idle_workers: Vec<_> = workers
-            .iter()
-            .filter(|w| w.is_idle() && !self.assignments.contains_key(&w.get_id()))
-            .copied()
-            .collect();
+    for worker in unassigned_idle_workers {
+        let best_mineral = find_least_saturated_mineral(&minerals, &mineral_worker_count, 2)
+            .or_else(|| find_least_saturated_mineral(&minerals, &mineral_worker_count, 3));
 
-        let mut mineral_worker_count = self.count_workers_per_resource();
-
-        for worker in unassigned_idle_workers {
-            let best_mineral = find_least_saturated_mineral(&minerals, &mineral_worker_count, 2)
-                .or_else(|| find_least_saturated_mineral(&minerals, &mineral_worker_count, 3));
-
-            if let Some(mineral) = best_mineral {
-                self.assign_to_minerals(game, worker, mineral, &mut mineral_worker_count);
-            } else {
-                self.assign_to_scout(game, worker);
-            }
+        if let Some(mineral) = best_mineral {
+            assign_to_minerals(
+                game,
+                worker,
+                mineral,
+                &mut assignments,
+                &mut mineral_worker_count,
+            );
+        } else {
+            assign_to_scout(game, worker, &mut assignments);
         }
     }
 
-    pub fn enforce_assignments(&mut self, game: &Game) {
-        let my_units = self.get_my_workers(game);
-        let workers: Vec<_> = my_units.iter().collect();
+    if let Ok(mut status) = status.lock() {
+        status.worker_assignments = assignments;
+    }
+}
 
-        let mut assignments_to_clear = Vec::new();
+pub fn enforce_assignments(game: &Game, status: &SharedStatus) {
+    let my_units = get_my_workers(game);
+    let workers: Vec<_> = my_units.iter().collect();
 
-        for worker in workers {
-            let worker_id = worker.get_id();
-            if let Some(assignment) = self.assignments.get(&worker_id) {
-                match assignment.assignment_type {
-                    WorkerAssignmentType::Gathering => {
-                        self.enforce_gathering_assignment(
-                            game,
-                            worker,
-                            assignment,
-                            &mut assignments_to_clear,
-                        );
-                    }
-                    WorkerAssignmentType::Scouting => {
-                        self.enforce_scouting_assignment(
-                            worker,
-                            assignment,
-                            &mut assignments_to_clear,
-                        );
-                    }
-                    WorkerAssignmentType::Building => {
-                        self.enforce_building_assignment(worker, &mut assignments_to_clear);
-                    }
+    let mut assignments = if let Ok(status) = status.lock() {
+        status.worker_assignments.clone()
+    } else {
+        return;
+    };
+
+    let mut assignments_to_clear = Vec::new();
+
+    for worker in workers {
+        let worker_id = worker.get_id();
+        if let Some(assignment) = assignments.get(&worker_id) {
+            match assignment.assignment_type {
+                WorkerAssignmentType::Gathering => {
+                    enforce_gathering_assignment(
+                        game,
+                        worker,
+                        assignment,
+                        &mut assignments_to_clear,
+                    );
+                }
+                WorkerAssignmentType::Scouting => {
+                    enforce_scouting_assignment(worker, assignment, &mut assignments_to_clear);
+                }
+                WorkerAssignmentType::Building => {
+                    enforce_building_assignment(worker, &mut assignments_to_clear);
                 }
             }
         }
-
-        for worker_id in assignments_to_clear {
-            self.assignments.remove(&worker_id);
-        }
     }
 
-    fn assign_to_minerals(
-        &mut self,
-        game: &Game,
-        worker: &Unit,
-        mineral: &Unit,
-        mineral_worker_count: &mut HashMap<usize, usize>,
-    ) {
-        let mineral_id = mineral.get_id();
-
-        if let Err(e) = worker.gather(mineral) {
-            game.draw_text_screen((10, 50), &format!("Worker gather error: {:?}", e));
-        } else {
-            self.assignments
-                .insert(worker.get_id(), WorkerAssignment::gathering(mineral_id));
-            *mineral_worker_count.entry(mineral_id).or_insert(0) += 1;
-        }
+    for worker_id in &assignments_to_clear {
+        assignments.remove(worker_id);
     }
 
-    fn assign_to_scout(&mut self, game: &Game, worker: &Unit) {
-        let map_width = game.map_width();
-        let map_height = game.map_height();
-
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let seed = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as usize;
-        let random_x = ((seed + worker.get_id()) % map_width as usize) as i32 * 32;
-        let random_y = ((seed * 7 + worker.get_id() * 11) % map_height as usize) as i32 * 32;
-        let scout_position = Position::new(random_x, random_y);
-
-        if let Err(e) = worker.move_(scout_position) {
-            game.draw_text_screen((10, 70), &format!("Worker scout error: {:?}", e));
-        } else {
-            self.assignments
-                .insert(worker.get_id(), WorkerAssignment::scouting(scout_position));
-        }
+    if let Ok(mut status) = status.lock() {
+        status.worker_assignments = assignments;
     }
+}
 
-    fn count_workers_per_resource(&self) -> HashMap<usize, usize> {
-        self.assignments
-            .values()
-            .filter(|a| a.assignment_type == WorkerAssignmentType::Gathering)
-            .filter_map(|a| a.target_unit)
-            .fold(HashMap::new(), |mut acc, mineral_id| {
-                *acc.entry(mineral_id).or_insert(0) += 1;
-                acc
-            })
+fn assign_to_minerals(
+    game: &Game,
+    worker: &Unit,
+    mineral: &Unit,
+    assignments: &mut HashMap<usize, WorkerAssignment>,
+    mineral_worker_count: &mut HashMap<usize, usize>,
+) {
+    let mineral_id = mineral.get_id();
+
+    if let Err(e) = worker.gather(mineral) {
+        game.draw_text_screen((10, 50), &format!("Worker gather error: {:?}", e));
+    } else {
+        assignments.insert(worker.get_id(), WorkerAssignment::gathering(mineral_id));
+        *mineral_worker_count.entry(mineral_id).or_insert(0) += 1;
     }
+}
 
-    fn remove_dead_workers(&mut self, workers: &[&Unit]) {
-        let worker_ids: Vec<usize> = workers.iter().map(|w| w.get_id()).collect();
-        self.assignments.retain(|id, _| worker_ids.contains(id));
+fn assign_to_scout(game: &Game, worker: &Unit, assignments: &mut HashMap<usize, WorkerAssignment>) {
+    let map_width = game.map_width();
+    let map_height = game.map_height();
+
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as usize;
+    let random_x = ((seed + worker.get_id()) % map_width as usize) as i32 * 32;
+    let random_y = ((seed * 7 + worker.get_id() * 11) % map_height as usize) as i32 * 32;
+    let scout_position = (random_x, random_y);
+
+    if let Err(e) = worker.move_(Position::new(random_x, random_y)) {
+        game.draw_text_screen((10, 70), &format!("Worker scout error: {:?}", e));
+    } else {
+        assignments.insert(worker.get_id(), WorkerAssignment::scouting(scout_position));
     }
+}
 
-    fn enforce_gathering_assignment(
-        &self,
-        game: &Game,
-        worker: &Unit,
-        assignment: &WorkerAssignment,
-        assignments_to_clear: &mut Vec<usize>,
-    ) {
-        if let Some(assigned_mineral_id) = assignment.target_unit {
-            let correct_target = worker
-                .get_target()
+fn count_workers_per_resource(
+    assignments: &HashMap<usize, WorkerAssignment>,
+) -> HashMap<usize, usize> {
+    assignments
+        .values()
+        .filter(|a| a.assignment_type == WorkerAssignmentType::Gathering)
+        .filter_map(|a| a.target_unit)
+        .fold(HashMap::new(), |mut acc, mineral_id| {
+            *acc.entry(mineral_id).or_insert(0) += 1;
+            acc
+        })
+}
+
+fn remove_dead_workers(assignments: &mut HashMap<usize, WorkerAssignment>, workers: &[&Unit]) {
+    let worker_ids: Vec<usize> = workers.iter().map(|w| w.get_id()).collect();
+    assignments.retain(|id, _| worker_ids.contains(id));
+}
+
+fn enforce_gathering_assignment(
+    game: &Game,
+    worker: &Unit,
+    assignment: &WorkerAssignment,
+    assignments_to_clear: &mut Vec<usize>,
+) {
+    if let Some(assigned_mineral_id) = assignment.target_unit {
+        let correct_target = worker
+            .get_target()
+            .map(|t| t.get_id() == assigned_mineral_id)
+            .unwrap_or(false)
+            || worker
+                .get_order_target()
                 .map(|t| t.get_id() == assigned_mineral_id)
-                .unwrap_or(false)
-                || worker
-                    .get_order_target()
-                    .map(|t| t.get_id() == assigned_mineral_id)
-                    .unwrap_or(false);
+                .unwrap_or(false);
 
-            if !correct_target && worker.is_idle() {
-                if let Some(mineral) = game.get_unit(assigned_mineral_id) {
-                    if mineral.exists() && mineral.get_resources() > 0 {
-                        let _ = worker.gather(&mineral);
-                    } else {
-                        assignments_to_clear.push(worker.get_id());
-                    }
+        if !correct_target && worker.is_idle() {
+            if let Some(mineral) = game.get_unit(assigned_mineral_id) {
+                if mineral.exists() && mineral.get_resources() > 0 {
+                    let _ = worker.gather(&mineral);
                 } else {
                     assignments_to_clear.push(worker.get_id());
                 }
-            }
-        }
-    }
-
-    fn enforce_scouting_assignment(
-        &self,
-        worker: &Unit,
-        assignment: &WorkerAssignment,
-        assignments_to_clear: &mut Vec<usize>,
-    ) {
-        if let Some(target_pos) = assignment.target_position {
-            let worker_pos = worker.get_position();
-            let distance = (((worker_pos.x - target_pos.x).pow(2)
-                + (worker_pos.y - target_pos.y).pow(2)) as f32)
-                .sqrt() as i32;
-
-            if distance < 100 || worker.is_idle() {
+            } else {
                 assignments_to_clear.push(worker.get_id());
             }
         }
     }
+}
 
-    fn enforce_building_assignment(&self, worker: &Unit, assignments_to_clear: &mut Vec<usize>) {
-        if worker.is_idle() {
+fn enforce_scouting_assignment(
+    worker: &Unit,
+    assignment: &WorkerAssignment,
+    assignments_to_clear: &mut Vec<usize>,
+) {
+    if let Some((target_x, target_y)) = assignment.target_position {
+        let worker_pos = worker.get_position();
+        let distance = (((worker_pos.x - target_x).pow(2) + (worker_pos.y - target_y).pow(2))
+            as f32)
+            .sqrt() as i32;
+
+        if distance < 100 || worker.is_idle() {
             assignments_to_clear.push(worker.get_id());
         }
+    }
+}
+
+fn enforce_building_assignment(worker: &Unit, assignments_to_clear: &mut Vec<usize>) {
+    if worker.is_idle() {
+        assignments_to_clear.push(worker.get_id());
     }
 }
 

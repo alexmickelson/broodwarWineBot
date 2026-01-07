@@ -15,8 +15,6 @@ player_race: Zerg
 enemy_count: 1
 enemy_count: 2
 
-# Computer races (can specify up to 7)
-# Options: Terran | Protoss | Zerg | Random | RandomTP | RandomTZ | RandomPZ | RandomTPZ | Default
 computer_races:
   - Random
   # - Terran
@@ -26,40 +24,30 @@ computer_races:
   # - Default
   # - Default
 
-# Game type: TOP_VS_BOTTOM | MELEE | FREE_FOR_ALL | ONE_ON_ONE | USE_MAP_SETTINGS
-#            | CAPTURE_THE_FLAG | GREED | SLAUGHTER | SUDDEN_DEATH | TEAM_MELEE
-#            | TEAM_FREE_FOR_ALL | TEAM_CAPTURE_THE_FLAG
 game_type: MELEE
+# game_type: TEAM_MELEE
 
 auto_restart: ON
 # auto_restart: OFF
 
-# Save replay path (supports environment variables like %BOTNAME6%, $Y, $b, $d, %MAP%, etc.)
 save_replay: "maps/replays/%BOTNAME6%/$Y $b $d/%MAP%_%BOTRACE%%ALLYRACES%vs%ENEMYRACES%_$H$M$S.rep"
 
-# Windowed mode: ON | OFF
 windowed: OFF
+# windowed: ON
 
-# Window dimensions (only used if windowed = ON)
 window_left: 1556
 window_top: 704
 window_width: 640
 window_height: 480
 
-# Game sound: ON | OFF
 sound: ON
 
-# Screenshot format: gif | pcx | tga | bmp
 screenshots: gif
 
-# Drop players on timeout: ON | OFF
 drop_players: OFF
 
-# Shared memory (BWAPI Server): ON | OFF
-# MUST be ON for client bots to connect
 shared_memory: ON
 
-# Holiday mode: ON | OFF
 holiday: ON
 
 # AI module paths
