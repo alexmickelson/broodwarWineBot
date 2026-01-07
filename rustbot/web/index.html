@@ -15,46 +15,10 @@
         <span id="connection-text">Connecting...</span>
       </div>
 
-      <h2>Worker Status</h2>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Total Workers</div>
-          <div class="stat-number" id="total-workers">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Gathering</div>
-          <div class="stat-number" id="gathering-workers">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Idle</div>
-          <div class="stat-number" id="idle-workers">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Building</div>
-          <div class="stat-number" id="building-workers">0</div>
-        </div>
-      </div>
-
       <h2>Worker Assignments</h2>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Assigned Gathering</div>
-          <div class="stat-number" id="assigned-gathering">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Assigned Scouting</div>
-          <div class="stat-number" id="assigned-scouting">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Assigned Building</div>
-          <div class="stat-number" id="assigned-building">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Total Assignments</div>
-          <div class="stat-number" id="total-assignments">0</div>
-        </div>
+      <div id="worker-assignments-container" class="data-structure-container">
+        <div class="loading">Waiting for assignment data...</div>
       </div>
-      <div id="assignment-details" class="assignment-details"></div>
 
       <h2>Map Visualization</h2>
       <div class="legend">

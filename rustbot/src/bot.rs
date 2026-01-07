@@ -21,6 +21,7 @@ impl AiModule for RustBot {
 
     fn on_frame(&mut self, game: &Game) {
         worker_management::draw_worker_resource_lines(game);
+        worker_management::draw_worker_ids(game);
 
         worker_management::update_assignments(game, &self.status);
         worker_management::enforce_assignments(game, &self.status);
@@ -30,9 +31,7 @@ impl AiModule for RustBot {
         }
     }
 
-    fn on_unit_create(&mut self, game: &Game, _unit: Unit) {
-        println!("created: {}", game.map_file_name());
-    }
+    fn on_unit_create(&mut self, game: &Game, _unit: Unit) {}
 
     fn on_unit_destroy(&mut self, _game: &Game, _unit: Unit) {}
 

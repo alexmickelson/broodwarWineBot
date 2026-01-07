@@ -6,15 +6,9 @@ let reconnectTimer = null;
 const connectionIndicator = document.getElementById("connection-indicator");
 const connectionText = document.getElementById("connection-text");
 const mapContainer = document.getElementById("map-container");
-const totalWorkers = document.getElementById("total-workers");
-const gatheringWorkers = document.getElementById("gathering-workers");
-const idleWorkers = document.getElementById("idle-workers");
-const buildingWorkers = document.getElementById("building-workers");
-const assignedGathering = document.getElementById("assigned-gathering");
-const assignedScouting = document.getElementById("assigned-scouting");
-const assignedBuilding = document.getElementById("assigned-building");
-const totalAssignments = document.getElementById("total-assignments");
-const assignmentDetails = document.getElementById("assignment-details");
+const workerAssignmentsContainer = document.getElementById(
+  "worker-assignments-container"
+);
 
 function connect() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -60,80 +54,99 @@ function connect() {
 }
 
 function updateUI(data) {
-  // Update worker stats
-  if (data.worker_status) {
-    totalWorkers.textContent = data.worker_status.total;
-    gatheringWorkers.textContent = data.worker_status.gathering;
-    idleWorkers.textContent = data.worker_status.idle;
-    buildingWorkers.textContent = data.worker_status.building;
-  }
-
-  // Update worker assignments
+  // Display worker assignments as formatted data structure
   if (data.worker_assignments) {
-    const assignments = Object.values(data.worker_assignments);
-    const gatheringCount = assignments.filter(
-      (a) => a.assignment_type === "Gathering"
-    ).length;
-    const scoutingCount = assignments.filter(
-      (a) => a.assignment_type === "Scouting"
-    ).length;
-    const buildingCount = assignments.filter(
-      (a) => a.assignment_type === "Building"
-    ).length;
-
-    assignedGathering.textContent = gatheringCount;
-    assignedScouting.textContent = scoutingCount;
-    assignedBuilding.textContent = buildingCount;
-    totalAssignments.textContent = assignments.length;
-
-    // Show assignment details
-    let detailsHTML = '<div class="assignment-list">';
-    const assignmentEntries = Object.entries(data.worker_assignments);
-
-    if (assignmentEntries.length > 0) {
-      detailsHTML += "<h3>Assignment Details</h3>";
-      detailsHTML += '<div class="assignment-table">';
-
-      for (const [workerId, assignment] of assignmentEntries.slice(0, 20)) {
-        // Show first 20
-        const typeClass = assignment.assignment_type.toLowerCase();
-        let targetInfo = "";
-
-        if (assignment.target_unit) {
-          targetInfo = `→ Resource #${assignment.target_unit}`;
-        } else if (assignment.target_position) {
-          const [x, y] = assignment.target_position;
-          targetInfo = `→ Position (${x}, ${y})`;
-        }
-
-        detailsHTML += `
-          <div class="assignment-row ${typeClass}">
-            <span class="worker-id">Worker #${workerId}</span>
-            <span class="assignment-type">${assignment.assignment_type}</span>
-            <span class="assignment-target">${targetInfo}</span>
-          </div>
-        `;
-      }
-
-      if (assignmentEntries.length > 20) {
-        detailsHTML += `<div class="more-assignments">... and ${
-          assignmentEntries.length - 20
-        } more</div>`;
-      }
-
-      detailsHTML += "</div>";
-    } else {
-      detailsHTML += '<p class="no-assignments">No active assignments</p>';
-    }
-
-    detailsHTML += "</div>";
-    assignmentDetails.innerHTML = detailsHTML;
+    workerAssignmentsContainer.innerHTML = formatWorkerAssignments(
+      data.worker_assignments
+    );
   }
 
   // Update map
   if (data.map_svg) {
     mapContainer.innerHTML = data.map_svg;
   }
+}
+
+function formatWorkerAssignments(assignments) {
+  const entries = Object.entries(assignments);
+
+  if (entries.length === 0) {
+    return '<div class="empty-data">No worker assignments</div>';
+  }
+
+  // Group by assignment type
+  const grouped = {
+    Gathering: [],
+    Scouting: [],
+    Building: [],
+  };
+
+  for (const [workerId, assignment] of entries) {
+    grouped[assignment.assignment_type].push({ workerId, ...assignment });
+  }
+
+  let html = '<div class="assignments-grid">';
+
+  // Display each group
+  for (const [type, items] of Object.entries(grouped)) {
+    if (items.length === 0) continue;
+
+    const typeClass = type.toLowerCase();
+    html += `
+      <div class="assignment-group ${typeClass}">
+        <div class="group-header">
+          <h3>${type}</h3>
+          <span class="count-badge">${items.length}</span>
+        </div>
+        <div class="assignment-list">
+    `;
+
+    for (const item of items) {
+      let targetDisplay = "";
+      if (item.target_unit !== null && item.target_unit !== undefined) {
+        targetDisplay = `
+          <div class="data-field">
+            <span class="field-name">target_unit:</span>
+            <span class="field-value number">${item.target_unit}</span>
+          </div>
+        `;
+      }
+
+      if (item.target_position) {
+        const [x, y] = item.target_position;
+        targetDisplay += `
+          <div class="data-field">
+            <span class="field-name">target_position:</span>
+            <span class="field-value tuple">(${x}, ${y})</span>
+          </div>
+        `;
+      }
+
+      html += `
+        <div class="assignment-card">
+          <div class="worker-header">
+            <span class="worker-label">Worker</span>
+            <span class="worker-id-value">#${item.workerId}</span>
+          </div>
+          <div class="assignment-data">
+            <div class="data-field">
+              <span class="field-name">assignment_type:</span>
+              <span class="field-value enum ${typeClass}">${item.assignment_type}</span>
+            </div>
+            ${targetDisplay}
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
+        </div>
+      </div>
+    `;
+  }
+
+  html += "</div>";
+  return html;
 }
 
 // Connect when page loads
