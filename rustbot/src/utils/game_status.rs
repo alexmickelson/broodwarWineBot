@@ -1,4 +1,5 @@
 use crate::map::MapData;
+use rsbwapi::UnitType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -49,6 +50,7 @@ pub struct GameStatus {
   pub map_data: MapData,
   pub worker_assignments: HashMap<usize, WorkerAssignment>,
   pub game_speed: i32,
+  pub build_order: Vec<UnitType>,
 }
 
 impl Default for GameStatus {
@@ -57,6 +59,9 @@ impl Default for GameStatus {
       map_data: MapData::default(),
       worker_assignments: HashMap::new(),
       game_speed: -1,
+      build_order: vec![
+        UnitType::Zerg_Drone,
+      ]
     }
   }
 }

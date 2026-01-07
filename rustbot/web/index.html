@@ -15,9 +15,27 @@
         <span id="connection-text">Connecting...</span>
       </div>
 
+      <h2>Game Speed</h2>
+      <div class="control-section">
+        <div class="button-group">
+          <button class="speed-btn" data-speed="-1">-1 (Paused)</button>
+          <button class="speed-btn" data-speed="0">0 (Fastest)</button>
+          <button class="speed-btn" data-speed="1">1 (Normal)</button>
+          <button class="speed-btn" data-speed="42">42 (Slow)</button>
+        </div>
+        <div class="current-speed">
+          Current: <span id="current-speed">-1</span>
+        </div>
+      </div>
+
       <h2>Worker Assignments</h2>
       <div id="worker-assignments-container" class="data-structure-container">
         <div class="loading">Waiting for assignment data...</div>
+      </div>
+
+      <h2>Build Order</h2>
+      <div id="build-order-container" class="data-structure-container">
+        <div class="loading">Waiting for build order...</div>
       </div>
 
       <h2>Map Visualization</h2>

@@ -300,3 +300,15 @@ $SPEED_LINE
 ; will cause BWAPI to wait an infinite amount of time until the player reconnects.
 drop_players = $DROP_PLAYERS
 EOF
+
+
+
+
+# Configure W-MODE to enable 2x view by default
+WMODE_INI="${SCRIPT_DIR}/starcraft/wmode.ini"
+if [ -f "$WMODE_INI" ]; then
+    sed -i 's/^DblSizeMode=.*/DblSizeMode=1/' "$WMODE_INI"
+    echo "Configured W-MODE for 2x view"
+else
+    echo "Warning: wmode.ini not found at $WMODE_INI"
+fi

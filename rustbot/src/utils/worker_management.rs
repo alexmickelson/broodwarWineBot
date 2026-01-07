@@ -27,10 +27,26 @@ pub fn update_assignments(game: &Game, status: &SharedStatus) {
 
   remove_dead_workers(&mut assignments, &workers);
 
+  let start_location = game
+    .self_()
+    .and_then(|p: Player| {
+      let start_locations = game.get_start_locations();
+      start_locations.get(p.get_id() as usize).copied()
+    })
+    .expect("Failed to get start location");
+  println!("Start location: {:?}", start_location);
+
   let static_minerals = game.get_static_minerals();
   let minerals: Vec<_> = static_minerals
     .iter()
-    .filter(|m: &&Unit| m.exists() && m.get_resources() > 0)
+    .filter(|m: &&Unit| {
+      let start_pos = Position::new(start_location.x * 32 + 16, start_location.y * 32 + 16);
+      let mineral_pos = m.get_position();
+      let dx = (mineral_pos.x - start_pos.x) as f32;
+      let dy = (mineral_pos.y - start_pos.y) as f32;
+      let distance = (dx * dx + dy * dy).sqrt();
+      distance <= 10.0 * 32.0
+    })
     .collect();
 
   let unassigned_idle_workers: Vec<_> = workers
@@ -179,13 +195,7 @@ fn enforce_scouting_assignment(worker: &Unit, assignment: &WorkerAssignment) {
   }
 }
 
-fn enforce_building_assignment(_worker: &Unit) {
-  // Building workers manage themselves, no enforcement needed
-}
-
-fn is_resource(unit_type: UnitType) -> bool {
-  unit_type.is_mineral_field() || unit_type == UnitType::Resource_Vespene_Geyser
-}
+fn enforce_building_assignment(_worker: &Unit) {}
 
 fn find_least_saturated_mineral<'a>(
   minerals: &[&'a Unit],
@@ -203,33 +213,47 @@ fn find_least_saturated_mineral<'a>(
     .map(|(mineral, _)| *mineral)
 }
 
-pub fn draw_worker_resource_lines(game: &Game) {
-  let self_player = match game.self_() {
-    Some(p) => p,
-    None => return,
-  };
-
-  let my_units = self_player.get_units();
-  let workers: Vec<_> = my_units
-    .iter()
-    .filter(|u| u.get_type().is_worker())
-    .collect();
-
-  for worker in workers {
-    let worker_pos = worker.get_position();
-
-    if let Some(target) = worker.get_target() {
-      if is_resource(target.get_type()) {
-        game.draw_line_map(worker_pos, target.get_position(), Color::Cyan);
-      }
+pub fn draw_worker_resource_lines(
+  game: &Game,
+  worker_assignments: &HashMap<usize, WorkerAssignment>,
+) {
+  for (worker_id, assignment) in worker_assignments {
+    if assignment.assignment_type != WorkerAssignmentType::Gathering {
+      continue;
     }
 
-    if let Some(order_target) = worker.get_order_target() {
-      if is_resource(order_target.get_type()) {
-        game.draw_line_map(worker_pos, order_target.get_position(), Color::Yellow);
+    if let Some(worker) = game.get_unit(*worker_id) {
+      if let Some(mineral_id) = assignment.target_unit {
+        if let Some(mineral) = game.get_unit(mineral_id) {
+          let worker_pos = worker.get_position();
+          let mineral_pos = mineral.get_position();
+          game.draw_line_map(worker_pos, mineral_pos, Color::Cyan);
+        }
       }
     }
   }
+
+  // let my_units = self_player.get_units();
+  // let workers: Vec<_> = my_units
+  //   .iter()
+  //   .filter(|u| u.get_type().is_worker())
+  //   .collect();
+
+  // for worker in workers {
+  //   let worker_pos = worker.get_position();
+
+  //   if let Some(target) = worker.get_target() {
+  //     if is_resource(target.get_type()) {
+  //       game.draw_line_map(worker_pos, target.get_position(), Color::Cyan);
+  //     }
+  //   }
+
+  //   if let Some(order_target) = worker.get_order_target() {
+  //     if is_resource(order_target.get_type()) {
+  //       game.draw_line_map(worker_pos, order_target.get_position(), Color::Yellow);
+  //     }
+  //   }
+  // }
 }
 
 pub fn draw_worker_ids(game: &Game) {

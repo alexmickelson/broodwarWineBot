@@ -9,6 +9,21 @@ const mapContainer = document.getElementById("map-container");
 const workerAssignmentsContainer = document.getElementById(
   "worker-assignments-container"
 );
+const buildOrderContainer = document.getElementById("build-order-container");
+const currentSpeedDisplay = document.getElementById("current-speed");
+
+function sendGameSpeed(speed) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    const command = {
+      command: "set_game_speed",
+      value: speed,
+    };
+    ws.send(JSON.stringify(command));
+    console.log("Sent game speed:", speed);
+  } else {
+    console.error("WebSocket not connected");
+  }
+}
 
 function connect() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -54,11 +69,21 @@ function connect() {
 }
 
 function updateUI(data) {
+  // Update game speed display
+  if (data.game_speed !== undefined) {
+    currentSpeedDisplay.textContent = data.game_speed;
+  }
+
   // Display worker assignments as formatted data structure
   if (data.worker_assignments) {
     workerAssignmentsContainer.innerHTML = formatWorkerAssignments(
       data.worker_assignments
     );
+  }
+
+  // Display build order
+  if (data.build_order) {
+    buildOrderContainer.innerHTML = formatBuildOrder(data.build_order);
   }
 
   // Update map
@@ -149,8 +174,39 @@ function formatWorkerAssignments(assignments) {
   return html;
 }
 
+function formatBuildOrder(buildOrder) {
+  if (buildOrder.length === 0) {
+    return '<div class="empty-data">No build order set</div>';
+  }
+
+  let html = '<div class="build-order-list">';
+
+  buildOrder.forEach((unit, index) => {
+    // Remove the race prefix for cleaner display (e.g., "Zerg_Drone" -> "Drone")
+    const displayName = unit.replace(/^(Terran|Protoss|Zerg)_/, "");
+
+    html += `
+      <div class="build-order-item">
+        <span class="build-order-index">${index + 1}</span>
+        <span class="build-order-unit">${displayName}</span>
+      </div>
+    `;
+  });
+
+  html += "</div>";
+  return html;
+}
+
 // Connect when page loads
 connect();
+
+// Add event listeners for game speed buttons
+document.querySelectorAll(".speed-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const speed = parseInt(btn.dataset.speed);
+    sendGameSpeed(speed);
+  });
+});
 
 // Handle page visibility changes - reconnect when page becomes visible
 document.addEventListener("visibilitychange", () => {

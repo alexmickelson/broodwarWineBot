@@ -4,44 +4,70 @@ use crate::utils::worker_management;
 use rsbwapi::*;
 
 pub struct RustBot {
-    status: SharedStatus,
+  status: SharedStatus,
 }
 
 impl RustBot {
-    pub fn new(status: SharedStatus) -> Self {
-        Self { status }
+  pub fn new(status: SharedStatus) -> Self {
+    Self { status }
+  }
+
+  fn update_game_speed(&self, game: &Game) {
+    let speed = self.status.lock().unwrap().game_speed;
+
+    // SAFETY: rsbwapi uses interior mutability (RefCell) for the command queue.
+    // set_local_speed only adds a command to the queue, it doesn't modify game state.
+    // This cast is safe in the single-threaded BWAPI callback context.
+    unsafe {
+      let game_ptr = game as *const Game as *mut Game;
+      (*game_ptr).set_local_speed(speed);
     }
+  }
 }
 
 impl AiModule for RustBot {
-    fn on_start(&mut self, game: &Game) {
-        game.send_text("RustBot initialized!");
-        println!("Game started on map: {}", game.map_file_name());
+  fn on_start(&mut self, game: &Game) {
+    game.send_text("RustBot initialized!");
+    
+    // SAFETY: rsbwapi uses interior mutability (RefCell) for the command queue.
+    // enable_flag only adds a command to the queue.
+    // This cast is safe in the single-threaded BWAPI callback context.
+    unsafe {
+      let game_ptr = game as *const Game as *mut Game;
+      (*game_ptr).enable_flag(Flag::UserInput as i32);
     }
+    
+    println!("Game started on map: {}", game.map_file_name());
+  }
 
-    fn on_frame(&mut self, game: &Game) {
-        worker_management::draw_worker_resource_lines(game);
-        worker_management::draw_worker_ids(game);
+  fn on_frame(&mut self, game: &Game) {
+    self.update_game_speed(game);
 
-        worker_management::update_assignments(game, &self.status);
-        worker_management::enforce_assignments(game, &self.status);
+    worker_management::draw_worker_resource_lines(
+      game,
+      &self.status.lock().unwrap().worker_assignments.clone(),
+    );
+    worker_management::draw_worker_ids(game);
 
-        if game.get_frame_count() % 24 == 0 {
-            map_status::update_map_data(game, &self.status);
-        }
+    worker_management::update_assignments(game, &self.status);
+    worker_management::enforce_assignments(game, &self.status);
+
+    if game.get_frame_count() % 24 == 0 {
+      map_status::update_map_data(game, &self.status);
     }
+  }
 
-    fn on_unit_create(&mut self, game: &Game, _unit: Unit) {}
+  fn on_unit_create(&mut self, _game: &Game, _unit: Unit) {}
 
-    fn on_unit_destroy(&mut self, _game: &Game, _unit: Unit) {}
+  fn on_unit_destroy(&mut self, _game: &Game, _unit: Unit) {}
 
-    fn on_unit_complete(&mut self, _game: &Game, _unit: Unit) {}
+  fn on_unit_complete(&mut self, _game: &Game, _unit: Unit) {}
 
-    fn on_end(&mut self, _game: &Game, is_winner: bool) {
-        if is_winner {
-            println!("Victory!");
-        } else {
-            println!("Defeat!");
-        }
+  fn on_end(&mut self, _game: &Game, is_winner: bool) {
+    if is_winner {
+      println!("Victory!");
+    } else {
+      println!("Defeat!");
     }
+  }
 }

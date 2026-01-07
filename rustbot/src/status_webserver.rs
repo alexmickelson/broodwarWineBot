@@ -20,6 +20,14 @@ pub use crate::map::{MapData, ResourceInfo, UnitInfo};
 pub struct StatusUpdate {
   pub map_svg: String,
   pub worker_assignments: HashMap<usize, WorkerAssignment>,
+  pub game_speed: i32,
+  pub build_order: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GameSpeedCommand {
+  pub command: String,
+  pub value: i32,
 }
 
 async fn websocket_handler(
@@ -32,6 +40,7 @@ async fn websocket_handler(
 async fn handle_socket(socket: WebSocket, state: SharedStatus) {
   let (mut sender, mut receiver) = socket.split();
 
+  let state_clone = state.clone();
   let send_task = tokio::spawn(async move {
     let mut update_interval = interval(Duration::from_millis(500));
 
@@ -39,12 +48,18 @@ async fn handle_socket(socket: WebSocket, state: SharedStatus) {
       update_interval.tick().await;
 
       let status_update = {
-        let status = state.lock().unwrap();
+        let status = state_clone.lock().unwrap();
         let map_svg = generate_map_svg(&status.map_data);
 
         StatusUpdate {
           map_svg,
           worker_assignments: status.worker_assignments.clone(),
+          game_speed: status.game_speed,
+          build_order: status
+            .build_order
+            .iter()
+            .map(|ut| format!("{:?}", ut))
+            .collect(),
         }
       };
 
@@ -64,8 +79,19 @@ async fn handle_socket(socket: WebSocket, state: SharedStatus) {
 
   let recv_task = tokio::spawn(async move {
     while let Some(Ok(msg)) = receiver.next().await {
-      if matches!(msg, Message::Close(_)) {
-        break;
+      match msg {
+        Message::Text(text) => {
+          if let Ok(cmd) = serde_json::from_str::<GameSpeedCommand>(&text) {
+            if cmd.command == "set_game_speed" {
+              if let Ok(mut status) = state.lock() {
+                status.game_speed = cmd.value;
+                println!("Game speed set to: {}", cmd.value);
+              }
+            }
+          }
+        }
+        Message::Close(_) => break,
+        _ => {}
       }
     }
   });
