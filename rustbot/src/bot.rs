@@ -1,14 +1,19 @@
 use crate::status::{MapData, ResourceInfo, SharedStatus, UnitInfo};
-use crate::utils::worker_management;
+use crate::utils::worker_management::{self, WorkerManager};
+use crate::utils::worker_status;
 use rsbwapi::*;
 
 pub struct RustBot {
     status: SharedStatus,
+    worker_manager: WorkerManager,
 }
 
 impl RustBot {
     pub fn new(status: SharedStatus) -> Self {
-        Self { status }
+        Self {
+            status,
+            worker_manager: WorkerManager::new(),
+        }
     }
 
     fn update_map_data(&self, game: &Game) {
@@ -247,35 +252,23 @@ impl AiModule for RustBot {
     fn on_frame(&mut self, game: &Game) {
         self.draw_debug_info(game);
         worker_management::draw_worker_resource_lines(game);
-        worker_management::manage_workers(game);
+
+        self.worker_manager.update_assignments(game);
+        self.worker_manager.enforce_assignments(game);
+
         self.manage_production(game);
 
-        // Update map data every 24 frames (about once per second in normal speed)
         if game.get_frame_count() % 24 == 0 {
-            worker_management::update_worker_status(game, &self.status);
+            worker_status::update_worker_stats(game, &self.status);
             self.update_map_data(game);
         }
     }
 
-    fn on_unit_create(&mut self, _game: &Game, unit: Unit) {
-        println!(
-            "Unit created: {:?} (ID: {})",
-            unit.get_type(),
-            unit.get_id()
-        );
-    }
+    fn on_unit_create(&mut self, _game: &Game, unit: Unit) {}
 
-    fn on_unit_destroy(&mut self, _game: &Game, unit: Unit) {
-        println!(
-            "Unit destroyed: {:?} (ID: {})",
-            unit.get_type(),
-            unit.get_id()
-        );
-    }
+    fn on_unit_destroy(&mut self, _game: &Game, unit: Unit) {}
 
-    fn on_unit_complete(&mut self, _game: &Game, unit: Unit) {
-        println!("Unit completed: {:?}", unit.get_type());
-    }
+    fn on_unit_complete(&mut self, _game: &Game, unit: Unit) {}
 
     fn on_end(&mut self, _game: &Game, is_winner: bool) {
         if is_winner {

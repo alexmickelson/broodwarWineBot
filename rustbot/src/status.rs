@@ -107,9 +107,11 @@ async fn handle_socket(socket: WebSocket, state: SharedStatus) {
 }
 
 pub async fn start_server(status: SharedStatus) {
+    let web_dir = std::env::current_dir().unwrap().join("web");
+
     let app = Router::new()
         .route("/ws", get(websocket_handler))
-        .nest_service("/", ServeDir::new("web"))
+        .nest_service("/", ServeDir::new(web_dir))
         .with_state(status);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
