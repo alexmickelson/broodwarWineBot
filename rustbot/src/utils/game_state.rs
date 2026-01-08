@@ -1,4 +1,3 @@
-use crate::map::MapData;
 use rsbwapi::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -63,7 +62,6 @@ pub struct UnitOrder {
   pub target_position: Option<(i32, i32)>,
 }
 pub struct GameState {
-  pub map_data: MapData,
   pub worker_assignments: HashMap<usize, WorkerAssignment>,
   pub game_speed: i32,
   pub build_order: Vec<UnitType>,
@@ -75,7 +73,6 @@ pub struct GameState {
 impl Default for GameState {
   fn default() -> Self {
     Self {
-      map_data: MapData::default(),
       worker_assignments: HashMap::new(),
       game_speed: -1,
       build_order: vec![

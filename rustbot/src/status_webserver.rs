@@ -262,11 +262,12 @@ async fn map_handler(
   let (tx, rx) = oneshot::channel();
 
   let callback = Box::new(
-    move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
-      let map_svg = generate_map_svg(&state.map_data);
+    move |game: &rsbwapi::Game, _state: &crate::utils::game_state::GameState| {
+      let map_data = crate::map::collect_map_data(game);
+      let map_svg = generate_map_svg(&map_data);
       let snapshot = MapSnapshot {
         map_svg,
-        frame_count: _game.get_frame_count(),
+        frame_count: game.get_frame_count(),
       };
       let _ = tx.send(snapshot);
     },
