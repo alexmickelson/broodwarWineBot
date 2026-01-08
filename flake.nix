@@ -32,7 +32,6 @@
         buildInputs = with pkgs; [
           rustToolchain
           mingwCC
-          mingwPkgs.windows.pthreads
         ];
 
         nativeBuildInputs = with pkgs; [
