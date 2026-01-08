@@ -19,10 +19,13 @@ pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStat
   let combined_state = (game_state, callbacks);
 
   let app = Router::new()
-    .route("/status", get(status_handler))
     .route("/command", post(command_handler))
     .route("/worker-status", get(worker_status_handler))
     .route("/unit-orders", get(unit_orders_handler))
+    .route("/larvae", get(larvae_handler))
+    .route("/build-order", get(build_order_handler))
+    .route("/map", get(map_handler))
+    .route("/game-speed", get(game_speed_handler))
     .nest_service("/", ServeDir::new(web_dir))
     .with_state(combined_state);
 
@@ -34,42 +37,10 @@ pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStat
   axum::serve(listener, app).await.unwrap();
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StatusUpdate {
-  pub map_svg: String,
-  pub worker_assignments: HashMap<usize, WorkerAssignment>,
-  pub game_speed: i32,
-  pub build_order: Vec<String>,
-  pub build_order_index: usize,
-  pub larva_responsibilities: HashMap<usize, usize>,
-  pub unit_orders: HashMap<usize, UnitOrder>,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct GameSpeedCommand {
   pub command: String,
   pub value: i32,
-}
-
-async fn status_handler(
-  State((game_state, _)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
-) -> Json<StatusUpdate> {
-  let status = game_state.lock().unwrap();
-  let map_svg = generate_map_svg(&status.map_data);
-
-  Json(StatusUpdate {
-    map_svg,
-    worker_assignments: status.worker_assignments.clone(),
-    game_speed: status.game_speed,
-    build_order: status
-      .build_order
-      .iter()
-      .map(|ut| format!("{:?}", ut))
-      .collect(),
-    build_order_index: status.build_order_index,
-    larva_responsibilities: status.larva_responsibilities.clone(),
-    unit_orders: status.unit_orders.clone(),
-  })
 }
 
 async fn command_handler(
@@ -106,22 +77,21 @@ async fn worker_status_handler(
     },
   );
 
+  let error_return = WorkerStatusSnapshot {
+    worker_assignments: HashMap::new(),
+    frame_count: -1,
+  };
+
   if let Ok(mut callbacks_lock) = callbacks.lock() {
     callbacks_lock.add_callback(callback);
   } else {
-    return Json(WorkerStatusSnapshot {
-      worker_assignments: HashMap::new(),
-      frame_count: -1,
-    });
+    return Json(error_return);
   }
 
   // Wait for the callback to be invoked from the game thread
   match rx.await {
     Ok(snapshot) => Json(snapshot),
-    Err(_) => Json(WorkerStatusSnapshot {
-      worker_assignments: HashMap::new(),
-      frame_count: -1,
-    }),
+    Err(_) => Json(error_return),
   }
 }
 
@@ -160,6 +130,171 @@ async fn unit_orders_handler(
     Ok(snapshot) => Json(snapshot),
     Err(_) => Json(UnitOrdersSnapshot {
       unit_orders: HashMap::new(),
+      frame_count: -1,
+    }),
+  }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct LarvaeSnapshot {
+  pub larva_responsibilities: HashMap<usize, usize>,
+  pub frame_count: i32,
+}
+
+async fn larvae_handler(
+  State((_, callbacks)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+) -> impl IntoResponse {
+  let (tx, rx) = oneshot::channel();
+
+  let callback = Box::new(
+    move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
+      let snapshot = LarvaeSnapshot {
+        larva_responsibilities: state.larva_responsibilities.clone(),
+        frame_count: _game.get_frame_count(),
+      };
+      let _ = tx.send(snapshot);
+    },
+  );
+
+  if let Ok(mut callbacks_lock) = callbacks.lock() {
+    callbacks_lock.add_callback(callback);
+  } else {
+    return Json(LarvaeSnapshot {
+      larva_responsibilities: HashMap::new(),
+      frame_count: -1,
+    });
+  }
+
+  match rx.await {
+    Ok(snapshot) => Json(snapshot),
+    Err(_) => Json(LarvaeSnapshot {
+      larva_responsibilities: HashMap::new(),
+      frame_count: -1,
+    }),
+  }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct BuildOrderSnapshot {
+  pub build_order: Vec<String>,
+  pub build_order_index: usize,
+  pub frame_count: i32,
+}
+
+async fn build_order_handler(
+  State((_, callbacks)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+) -> impl IntoResponse {
+  let (tx, rx) = oneshot::channel();
+
+  let callback = Box::new(
+    move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
+      let snapshot = BuildOrderSnapshot {
+        build_order: state
+          .build_order
+          .iter()
+          .map(|ut| format!("{:?}", ut))
+          .collect(),
+        build_order_index: state.build_order_index,
+        frame_count: _game.get_frame_count(),
+      };
+      let _ = tx.send(snapshot);
+    },
+  );
+
+  if let Ok(mut callbacks_lock) = callbacks.lock() {
+    callbacks_lock.add_callback(callback);
+  } else {
+    return Json(BuildOrderSnapshot {
+      build_order: Vec::new(),
+      build_order_index: 0,
+      frame_count: -1,
+    });
+  }
+
+  match rx.await {
+    Ok(snapshot) => Json(snapshot),
+    Err(_) => Json(BuildOrderSnapshot {
+      build_order: Vec::new(),
+      build_order_index: 0,
+      frame_count: -1,
+    }),
+  }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MapSnapshot {
+  pub map_svg: String,
+  pub frame_count: i32,
+}
+
+async fn map_handler(
+  State((_, callbacks)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+) -> impl IntoResponse {
+  let (tx, rx) = oneshot::channel();
+
+  let callback = Box::new(
+    move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
+      let map_svg = generate_map_svg(&state.map_data);
+      let snapshot = MapSnapshot {
+        map_svg,
+        frame_count: _game.get_frame_count(),
+      };
+      let _ = tx.send(snapshot);
+    },
+  );
+
+  if let Ok(mut callbacks_lock) = callbacks.lock() {
+    callbacks_lock.add_callback(callback);
+  } else {
+    return Json(MapSnapshot {
+      map_svg: String::new(),
+      frame_count: -1,
+    });
+  }
+
+  match rx.await {
+    Ok(snapshot) => Json(snapshot),
+    Err(_) => Json(MapSnapshot {
+      map_svg: String::new(),
+      frame_count: -1,
+    }),
+  }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct GameSpeedSnapshot {
+  pub game_speed: i32,
+  pub frame_count: i32,
+}
+
+async fn game_speed_handler(
+  State((_, callbacks)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+) -> impl IntoResponse {
+  let (tx, rx) = oneshot::channel();
+
+  let callback = Box::new(
+    move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
+      let snapshot = GameSpeedSnapshot {
+        game_speed: state.game_speed,
+        frame_count: _game.get_frame_count(),
+      };
+      let _ = tx.send(snapshot);
+    },
+  );
+
+  if let Ok(mut callbacks_lock) = callbacks.lock() {
+    callbacks_lock.add_callback(callback);
+  } else {
+    return Json(GameSpeedSnapshot {
+      game_speed: 0,
+      frame_count: -1,
+    });
+  }
+
+  match rx.await {
+    Ok(snapshot) => Json(snapshot),
+    Err(_) => Json(GameSpeedSnapshot {
+      game_speed: 0,
       frame_count: -1,
     }),
   }

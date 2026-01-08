@@ -53,7 +53,7 @@ body {
   flex-shrink: 0;
   padding: 20px;
   background: var(--color-bg-primary);
-  border-bottom: 2px solid var(--color-border-primary);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .controls-row {
@@ -86,8 +86,8 @@ h1 {
 
 h2 {
   color: var(--color-text-secondary);
-  border-bottom: 1px solid var(--color-border-primary);
-  padding-bottom: 5px;
+  padding: 8px 0;
+  margin: 10px 0;
 }
 
 .connection-status {

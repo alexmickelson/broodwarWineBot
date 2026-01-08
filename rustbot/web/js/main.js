@@ -2,33 +2,12 @@
 import * as service from "./service.js";
 import * as ui from "./ui.js";
 import * as pollingControls from "./pollingControls.js";
-import * as expandableSection from "./expandable-section.js";
 import * as workerAssignmentsPolling from "./worker-assignments/worker-assignments-polling.js";
 import * as unitOrdersPolling from "./unit-orders/unit-orders-polling.js";
-
-let poller = null;
-let isConnected = false;
-
-function startPolling() {
-  if (poller) {
-    return; // Already registered
-  }
-
-  console.log("Registering main status polling...");
-
-  poller = pollingControls.registerPoller("main-status", async () => {
-    const data = await service.fetchStatus();
-
-    if (!isConnected) {
-      isConnected = true;
-      console.log("Connected to server");
-    }
-
-    ui.update(data);
-  });
-
-  poller.start();
-}
+import * as larvaePolling from "./larvae/larvae-polling.js";
+import * as buildOrderPolling from "./build-order/build-order-polling.js";
+import * as mapPolling from "./map/map-polling.js";
+import * as gameSpeedPolling from "./game-speed/game-speed-polling.js";
 
 function setupEventListeners() {
   // Speed button listeners
@@ -52,31 +31,22 @@ function setupEventListeners() {
       btn.classList.add("active");
     });
   });
-
-  // Section toggle listeners are now set up by expandable-section.js
-  // when sections are registered
-
-  // Reconnect on visibility change
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && !isConnected) {
-      startPolling();
-    }
-  });
 }
 
 function init() {
   // Generate entire UI
   ui.init();
 
-  // Initialize expandable sections
+  // Initialize all polling modules
   workerAssignmentsPolling.init();
   unitOrdersPolling.init();
+  larvaePolling.init();
+  buildOrderPolling.init();
+  mapPolling.init();
+  gameSpeedPolling.init();
 
   // Set up event listeners
   setupEventListeners();
-
-  // Start polling
-  startPolling();
 }
 
 // Initialize app when DOM is ready

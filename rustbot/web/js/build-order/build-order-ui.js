@@ -34,8 +34,11 @@ export function update(buildOrder, currentIndex) {
 
 export function createSection() {
   return `
-    <h2>Build Order</h2>
-    <div id="build-order-container" class="data-structure-container">
+    <h2>
+      <span class="section-toggle" data-section="build-order">▼</span>
+      Build Order
+    </h2>
+    <div id="build-order-container" class="data-structure-container collapsible-content">
       <div class="loading">Waiting for build order...</div>
     </div>
   `;

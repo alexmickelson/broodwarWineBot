@@ -36,10 +36,15 @@ export function createLegend() {
 
 export function createSection() {
   return `
-    <h2>Map Visualization</h2>
-    ${createLegend()}
-    <div class="map-container" id="map-container">
-      <div class="loading">Waiting for map data...</div>
+    <h2>
+      <span class="section-toggle" data-section="map-visualization">▼</span>
+      Map Visualization
+    </h2>
+    <div id="map-visualization-container" class="collapsible-content">
+      ${createLegend()}
+      <div class="map-container" id="map-container">
+        <div class="loading">Waiting for map data...</div>
+      </div>
     </div>
   `;
 }

@@ -18,7 +18,6 @@ export function init() {
         ${unitOrders.createSection()}
         ${buildOrder.createSection()}
         ${map.createSection()}
-        <div class="refresh-note">Live updates via polling</div>
       </div>
     </div>
   `;
@@ -30,41 +29,4 @@ export function init() {
   // Render poll speed buttons
   document.getElementById("poll-speed-controls").innerHTML =
     gameSpeed.createPollSpeedButtons();
-}
-
-export function updateGameSpeed(speed) {
-  gameSpeed.update(speed);
-}
-
-export function updateBuildOrder(order, currentIndex) {
-  buildOrder.update(order, currentIndex);
-}
-
-export function updateMap(mapSvg) {
-  map.update(mapSvg);
-}
-
-export function updateLarvaeAssignments(responsibilities) {
-  larvae.update(responsibilities);
-}
-
-export function update(data) {
-  if (data.game_speed !== undefined) {
-    updateGameSpeed(data.game_speed);
-  }
-
-  // Worker assignments polls independently via /worker-status
-  // Unit orders polls independently via /unit-orders
-
-  if (data.larva_responsibilities) {
-    updateLarvaeAssignments(data.larva_responsibilities);
-  }
-
-  if (data.build_order) {
-    updateBuildOrder(data.build_order, data.build_order_index);
-  }
-
-  if (data.map_svg) {
-    updateMap(data.map_svg);
-  }
 }

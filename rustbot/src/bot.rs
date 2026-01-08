@@ -59,12 +59,7 @@ impl AiModule for RustBot {
     );
     worker_management::draw_worker_ids(game);
 
-    game_state::update_unit_orders(game, &self.game_state);
-    if game.get_frame_count() % 24 == 0 {
-      map_status::update_map_data(game, &self.game_state);
-    }
 
-    // Process all pending HTTP callbacks
     if let Ok(mut callbacks) = self.http_callbacks.lock() {
       if callbacks.has_pending() {
         if let Ok(state) = self.game_state.lock() {
