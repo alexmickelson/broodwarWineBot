@@ -34,7 +34,6 @@ pub fn update_assignments(game: &Game, status: &SharedStatus) {
       start_locations.get(p.get_id() as usize).copied()
     })
     .expect("Failed to get start location");
-  println!("Start location: {:?}", start_location);
 
   let static_minerals = game.get_static_minerals();
   let minerals: Vec<_> = static_minerals

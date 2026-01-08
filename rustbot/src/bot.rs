@@ -1,3 +1,4 @@
+use crate::utils::build_order_management;
 use crate::utils::game_status::SharedStatus;
 use crate::utils::map_status;
 use crate::utils::worker_management;
@@ -43,15 +44,16 @@ impl AiModule for RustBot {
   fn on_frame(&mut self, game: &Game) {
     self.update_game_speed(game);
 
+    build_order_management::build_order_onframe(game, &self.status);
+    worker_management::update_assignments(game, &self.status);
+    worker_management::enforce_assignments(game, &self.status);
+
+
     worker_management::draw_worker_resource_lines(
       game,
       &self.status.lock().unwrap().worker_assignments.clone(),
     );
     worker_management::draw_worker_ids(game);
-
-    worker_management::update_assignments(game, &self.status);
-    worker_management::enforce_assignments(game, &self.status);
-
     if game.get_frame_count() % 24 == 0 {
       map_status::update_map_data(game, &self.status);
     }
