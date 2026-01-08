@@ -88,7 +88,6 @@ async fn worker_status_handler(
     return Json(error_return);
   }
 
-  // Wait for the callback to be invoked from the game thread
   match rx.await {
     Ok(snapshot) => Json(snapshot),
     Err(_) => Json(error_return),
@@ -107,10 +106,41 @@ async fn unit_orders_handler(
   let (tx, rx) = oneshot::channel();
 
   let callback = Box::new(
-    move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
+    move |game: &rsbwapi::Game, _state: &crate::utils::game_state::GameState| {
+      let mut unit_orders = HashMap::new();
+
+      if let Some(player) = game.self_() {
+        let my_units: Vec<_> = player.get_units().into_iter().collect();
+
+        for unit in my_units {
+          let unit_id = unit.get_id();
+          let current_pos = unit.get_position();
+          let order = unit.get_order();
+
+          let target_id = unit.get_order_target().map(|t| t.get_id());
+          let target_type = unit
+            .get_order_target()
+            .map(|t| format!("{:?}", t.get_type()));
+          let target_position = unit.get_target_position().map(|p| (p.x, p.y));
+
+          unit_orders.insert(
+            unit_id,
+            UnitOrder {
+              unit_id,
+              unit_type: format!("{:?}", unit.get_type()),
+              order_name: format!("{:?}", order),
+              target_id,
+              target_type,
+              current_position: (current_pos.x, current_pos.y),
+              target_position,
+            },
+          );
+        }
+      }
+
       let snapshot = UnitOrdersSnapshot {
-        unit_orders: state.unit_orders.clone(),
-        frame_count: _game.get_frame_count(),
+        unit_orders,
+        frame_count: game.get_frame_count(),
       };
       let _ = tx.send(snapshot);
     },
@@ -125,7 +155,6 @@ async fn unit_orders_handler(
     });
   }
 
-  // Wait for the callback to be invoked from the game thread
   match rx.await {
     Ok(snapshot) => Json(snapshot),
     Err(_) => Json(UnitOrdersSnapshot {

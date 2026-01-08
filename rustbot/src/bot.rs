@@ -1,7 +1,6 @@
 use crate::utils::build_order_management;
 use crate::utils::game_state::{self, SharedGameState};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
-use crate::utils::map_status;
 use crate::utils::worker_management;
 use rsbwapi::*;
 
@@ -58,7 +57,6 @@ impl AiModule for RustBot {
       &self.game_state.lock().unwrap().worker_assignments.clone(),
     );
     worker_management::draw_worker_ids(game);
-
 
     if let Ok(mut callbacks) = self.http_callbacks.lock() {
       if callbacks.has_pending() {
