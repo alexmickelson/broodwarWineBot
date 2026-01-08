@@ -1,5 +1,4 @@
-#!/usr/bin/env nix-shell
-#! nix-shell -i bash -p unzip curl
+#!/usr/bin/env bash
 
 set -e
 

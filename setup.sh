@@ -1,5 +1,4 @@
-#!/usr/bin/env nix-shell
-#! nix-shell -i bash -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixos-24.11.tar.gz -p wineWowPackages.stable
+#!/usr/bin/env bash
 
 set -e
 

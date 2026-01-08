@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-24.11";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
@@ -10,12 +11,15 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
+  outputs = { self, nixpkgs, nixpkgs-stable, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
           inherit system overlays;
+        };
+        pkgs-stable = import nixpkgs-stable {
+          inherit system;
         };
 
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
@@ -106,30 +110,24 @@
             pkgs.cargo-watch
             pkgs.cargo-edit
             pkgs.rust-analyzer
-            pkgs.wine64
+            
+            # Wine from stable nixpkgs
+            pkgs-stable.wineWowPackages.stable
+            
+            # Script dependencies
+            pkgs.unzip
+            pkgs.curl
+            pkgs.p7zip
+            pkgs.wget
+            pkgs.xorg.xorgserver
           ];
 
           shellHook = ''
-            echo "🤖 Broodwar Wine Bot Development Environment"
-            echo "==========================================="
-            echo ""
-            echo "Available commands:"
+            echo "Available commands"
             echo "  build-rustbot        - Build release version for Windows"
             echo "  build-rustbot-debug  - Build debug version for Windows"
             echo "  check-rustbot        - Quick check without building"
             echo "  clean-rustbot        - Clean build artifacts"
-            echo ""
-            echo "Manual build:"
-            echo "  cd rustbot && cargo build --target x86_64-pc-windows-gnu"
-            echo ""
-            echo "Environment configured for cross-compilation to Windows"
-            echo "Target: x86_64-pc-windows-gnu"
-            echo ""
-            
-            ${pkgs.lib.concatStringsSep "\n" 
-              (pkgs.lib.mapAttrsToList 
-                (name: value: "export ${name}=\"${value}\"") 
-                shellEnv)}
           '';
         };
 
