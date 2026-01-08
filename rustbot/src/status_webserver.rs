@@ -1,5 +1,5 @@
 use crate::map::generate_map_svg;
-use crate::utils::game_status::{SharedStatus, WorkerAssignment};
+use crate::utils::game_state::{SharedGameState, WorkerAssignment};
 use axum::extract::ws::{Message, WebSocket};
 use axum::{
   extract::{State, WebSocketUpgrade},
@@ -32,15 +32,15 @@ pub struct GameSpeedCommand {
 
 async fn websocket_handler(
   ws: WebSocketUpgrade,
-  State(state): State<SharedStatus>,
+  State(game_state): State<SharedGameState>,
 ) -> impl IntoResponse {
-  ws.on_upgrade(|socket| handle_socket(socket, state))
+  ws.on_upgrade(|socket| handle_socket(socket, game_state))
 }
 
-async fn handle_socket(socket: WebSocket, state: SharedStatus) {
+async fn handle_socket(socket: WebSocket, game_state: SharedGameState) {
   let (mut sender, mut receiver) = socket.split();
 
-  let state_clone = state.clone();
+  let state_clone = game_state.clone();
   let send_task = tokio::spawn(async move {
     let mut update_interval = interval(Duration::from_millis(500));
 
@@ -48,14 +48,14 @@ async fn handle_socket(socket: WebSocket, state: SharedStatus) {
       update_interval.tick().await;
 
       let status_update = {
-        let status = state_clone.lock().unwrap();
-        let map_svg = generate_map_svg(&status.map_data);
+        let game_state_lock = state_clone.lock().unwrap();
+        let map_svg = generate_map_svg(&game_state_lock.map_data);
 
         StatusUpdate {
           map_svg,
-          worker_assignments: status.worker_assignments.clone(),
-          game_speed: status.game_speed,
-          build_order: status
+          worker_assignments: game_state_lock.worker_assignments.clone(),
+          game_speed: game_state_lock.game_speed,
+          build_order: game_state_lock
             .build_order
             .iter()
             .map(|ut| format!("{:?}", ut))
@@ -83,8 +83,8 @@ async fn handle_socket(socket: WebSocket, state: SharedStatus) {
         Message::Text(text) => {
           if let Ok(cmd) = serde_json::from_str::<GameSpeedCommand>(&text) {
             if cmd.command == "set_game_speed" {
-              if let Ok(mut status) = state.lock() {
-                status.game_speed = cmd.value;
+              if let Ok(mut game_state_lock) = game_state.lock() {
+                game_state_lock.game_speed = cmd.value;
                 println!("Game speed set to: {}", cmd.value);
               }
             }
@@ -102,13 +102,13 @@ async fn handle_socket(socket: WebSocket, state: SharedStatus) {
   }
 }
 
-pub async fn start_server(status: SharedStatus) {
+pub async fn start_server(game_state: SharedGameState) {
   let web_dir = std::env::current_dir().unwrap().join("web");
 
   let app = Router::new()
     .route("/ws", get(websocket_handler))
     .nest_service("/", ServeDir::new(web_dir))
-    .with_state(status);
+    .with_state(game_state);
 
   let listener = tokio::net::TcpListener::bind("127.0.0.1:3333")
     .await

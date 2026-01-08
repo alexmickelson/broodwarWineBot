@@ -1,8 +1,8 @@
 use crate::status_webserver::{MapData, ResourceInfo, UnitInfo};
-use crate::utils::game_status::SharedStatus;
+use crate::utils::game_state::SharedGameState;
 use rsbwapi::*;
 
-pub fn update_map_data(game: &Game, status: &SharedStatus) {
+pub fn update_map_data(game: &Game, game_state: &SharedGameState) {
     let map_width = game.map_width() as usize * 4; // Convert from build tiles to walk tiles
     let map_height = game.map_height() as usize * 4;
 
@@ -70,8 +70,8 @@ pub fn update_map_data(game: &Game, status: &SharedStatus) {
         }
     }
 
-    if let Ok(mut status) = status.lock() {
-        status.map_data = MapData {
+    if let Ok(mut game_state_lock) = game_state.lock() {
+        game_state_lock.map_data = MapData {
             width: map_width,
             height: map_height,
             walkability,

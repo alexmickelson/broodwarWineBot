@@ -1,20 +1,20 @@
 use crate::utils::build_order_management;
-use crate::utils::game_status::SharedStatus;
+use crate::utils::game_state::SharedGameState;
 use crate::utils::map_status;
 use crate::utils::worker_management;
 use rsbwapi::*;
 
 pub struct RustBot {
-  status: SharedStatus,
+  game_state: SharedGameState,
 }
 
 impl RustBot {
-  pub fn new(status: SharedStatus) -> Self {
-    Self { status }
+  pub fn new(game_state: SharedGameState) -> Self {
+    Self { game_state }
   }
 
   fn update_game_speed(&self, game: &Game) {
-    let speed = self.status.lock().unwrap().game_speed;
+    let speed = self.game_state.lock().unwrap().game_speed;
 
     // SAFETY: rsbwapi uses interior mutability (RefCell) for the command queue.
     // set_local_speed only adds a command to the queue, it doesn't modify game state.
@@ -44,18 +44,18 @@ impl AiModule for RustBot {
   fn on_frame(&mut self, game: &Game) {
     self.update_game_speed(game);
 
-    build_order_management::build_order_onframe(game, &self.status);
-    worker_management::update_assignments(game, &self.status);
-    worker_management::enforce_assignments(game, &self.status);
+    build_order_management::build_order_onframe(game, &self.game_state);
+    worker_management::update_assignments(game, &self.game_state);
+    worker_management::enforce_assignments(game, &self.game_state);
 
 
     worker_management::draw_worker_resource_lines(
       game,
-      &self.status.lock().unwrap().worker_assignments.clone(),
+      &self.game_state.lock().unwrap().worker_assignments.clone(),
     );
     worker_management::draw_worker_ids(game);
     if game.get_frame_count() % 24 == 0 {
-      map_status::update_map_data(game, &self.status);
+      map_status::update_map_data(game, &self.game_state);
     }
   }
 

@@ -46,14 +46,14 @@ impl WorkerAssignment {
 }
 
 #[derive(Clone, Debug)]
-pub struct GameStatus {
+pub struct GameState {
   pub map_data: MapData,
   pub worker_assignments: HashMap<usize, WorkerAssignment>,
   pub game_speed: i32,
   pub build_order: Vec<UnitType>,
 }
 
-impl Default for GameStatus {
+impl Default for GameState {
   fn default() -> Self {
     Self {
       map_data: MapData::default(),
@@ -66,4 +66,4 @@ impl Default for GameStatus {
   }
 }
 
-pub type SharedStatus = Arc<Mutex<GameStatus>>;
+pub type SharedGameState = Arc<Mutex<GameState>>;

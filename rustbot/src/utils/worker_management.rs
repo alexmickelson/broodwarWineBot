@@ -1,4 +1,4 @@
-use crate::utils::game_status::{SharedStatus, WorkerAssignment, WorkerAssignmentType};
+use crate::utils::game_state::{SharedGameState, WorkerAssignment, WorkerAssignmentType};
 use rsbwapi::*;
 use std::collections::HashMap;
 
@@ -15,12 +15,12 @@ fn get_my_workers(game: &Game) -> Vec<Unit> {
     .collect()
 }
 
-pub fn update_assignments(game: &Game, status: &SharedStatus) {
+pub fn update_assignments(game: &Game, game_state: &SharedGameState) {
   let my_units = get_my_workers(game);
   let workers: Vec<_> = my_units.iter().collect();
 
-  let mut assignments = if let Ok(status) = status.lock() {
-    status.worker_assignments.clone()
+  let mut assignments = if let Ok(game_state_lock) = game_state.lock() {
+    game_state_lock.worker_assignments.clone()
   } else {
     return;
   };
@@ -73,17 +73,17 @@ pub fn update_assignments(game: &Game, status: &SharedStatus) {
     }
   }
 
-  if let Ok(mut status) = status.lock() {
-    status.worker_assignments = assignments;
+  if let Ok(mut game_state_lock) = game_state.lock() {
+    game_state_lock.worker_assignments = assignments;
   }
 }
 
-pub fn enforce_assignments(game: &Game, status: &SharedStatus) {
+pub fn enforce_assignments(game: &Game, game_state: &SharedGameState) {
   let my_units = get_my_workers(game);
   let workers: Vec<_> = my_units.iter().collect();
 
-  let assignments = if let Ok(status) = status.lock() {
-    status.worker_assignments.clone()
+  let assignments = if let Ok(game_state_lock) = game_state.lock() {
+    game_state_lock.worker_assignments.clone()
   } else {
     return;
   };

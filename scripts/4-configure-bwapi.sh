@@ -305,10 +305,37 @@ EOF
 
 
 # Configure W-MODE to enable 2x view by default
-WMODE_INI="${SCRIPT_DIR}/starcraft/wmode.ini"
+WMODE_INI="${PROJECT_DIR}/starcraft/wmode.ini"
 if [ -f "$WMODE_INI" ]; then
     sed -i 's/^DblSizeMode=.*/DblSizeMode=1/' "$WMODE_INI"
     echo "Configured W-MODE for 2x view"
 else
-    echo "Warning: wmode.ini not found at $WMODE_INI"
+    echo "Creating wmode.ini with 2x view enabled"
+    cat > "$WMODE_INI" << 'EOF'
+[General]
+; Enable double size mode (2x zoom) by default
+; This makes the game window 1280x960 instead of 640x480
+DblSizeMode=1
+
+; Window position - set to 0 to center automatically
+SaveWindowClientX=0
+SaveWindowClientY=0
+
+; Cursor clipping enabled by default (keeps cursor in game window)
+CursorClipEnabled=1
+
+; Allow window movement
+WindowMovementEnabled=1
+
+; Window not always on top by default
+AlwaysOnTop=0
+
+; Enable caption buttons (minimize, maximize, close)
+CaptionButtonsEnabled=1
+
+; HijackInstall should be 0 for normal plugin loading
+; Set to 1 only if injecting before StarCraft's main thread reaches entry point
+HijackInstall=0
+EOF
+    echo "✓ Created wmode.ini"
 fi

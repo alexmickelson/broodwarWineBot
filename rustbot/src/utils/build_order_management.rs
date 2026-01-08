@@ -1,13 +1,13 @@
-use crate::utils::game_status::SharedStatus;
+use crate::utils::game_state::SharedGameState;
 use rsbwapi::*;
 
-pub fn build_order_onframe(game: &Game, status: &SharedStatus) {
-  let Ok(mut status) = status.lock() else {
-    println!("Failed to lock status in build_order_onframe");
+pub fn build_order_onframe(game: &Game, game_state: &SharedGameState) {
+  let Ok(mut game_state) = game_state.lock() else {
+    println!("Failed to lock game_state in build_order_onframe");
     return;
   };
 
-  let Some(unit_type) = status.build_order.first().cloned() else {
+  let Some(unit_type) = game_state.build_order.first().cloned() else {
     println!("build order empty");
     return;
   };
@@ -54,7 +54,7 @@ pub fn build_order_onframe(game: &Game, status: &SharedStatus) {
       let larva = larva_units.first().expect("could not get first larva");
 
       if larva.train(unit_type).is_ok() {
-        status.build_order.remove(0);
+        game_state.build_order.remove(0);
       }
     }
   }
