@@ -1,16 +1,13 @@
 use crate::map::generate_map_svg;
 use crate::utils::game_state::{SharedGameState, UnitOrder, WorkerAssignment};
-use axum::extract::ws::{Message, WebSocket};
 use axum::{
-  extract::{State, WebSocketUpgrade},
+  extract::State,
   response::IntoResponse,
-  routing::get,
-  Router,
+  routing::{get, post},
+  Json, Router,
 };
-use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tokio::time::{interval, Duration};
 use tower_http::services::ServeDir;
 
 // Re-export map types
@@ -33,86 +30,44 @@ pub struct GameSpeedCommand {
   pub value: i32,
 }
 
-async fn websocket_handler(
-  ws: WebSocketUpgrade,
-  State(game_state): State<SharedGameState>,
-) -> impl IntoResponse {
-  ws.on_upgrade(|socket| handle_socket(socket, game_state))
+async fn status_handler(State(game_state): State<SharedGameState>) -> Json<StatusUpdate> {
+  let status = game_state.lock().unwrap();
+  let map_svg = generate_map_svg(&status.map_data);
+
+  Json(StatusUpdate {
+    map_svg,
+    worker_assignments: status.worker_assignments.clone(),
+    game_speed: status.game_speed,
+    build_order: status
+      .build_order
+      .iter()
+      .map(|ut| format!("{:?}", ut))
+      .collect(),
+    build_order_index: status.build_order_index,
+    larva_responsibilities: status.larva_responsibilities.clone(),
+    unit_orders: status.unit_orders.clone(),
+  })
 }
 
-async fn handle_socket(socket: WebSocket, game_state: SharedGameState) {
-  let (mut sender, mut receiver) = socket.split();
-
-  let state_clone = game_state.clone();
-  let send_task = tokio::spawn(async move {
-    let mut update_interval = interval(Duration::from_millis(500));
-
-    loop {
-      update_interval.tick().await;
-
-      let status_update = {
-        let game_state_lock = state_clone.lock().unwrap();
-        let map_svg = generate_map_svg(&game_state_lock.map_data);
-
-        StatusUpdate {
-          map_svg,
-          worker_assignments: game_state_lock.worker_assignments.clone(),
-          game_speed: game_state_lock.game_speed,
-          build_order: game_state_lock
-            .build_order
-            .iter()
-            .map(|ut| format!("{:?}", ut))
-            .collect(),
-          build_order_index: game_state_lock.build_order_index,
-          larva_responsibilities: game_state_lock.larva_responsibilities.clone(),
-          unit_orders: game_state_lock.unit_orders.clone(),
-        }
-      };
-
-      match serde_json::to_string(&status_update) {
-        Ok(json) => {
-          if sender.send(Message::Text(json)).await.is_err() {
-            break;
-          }
-        }
-        Err(e) => {
-          eprintln!("Error serializing status update: {}", e);
-          break;
-        }
-      }
+async fn command_handler(
+  State(game_state): State<SharedGameState>,
+  Json(cmd): Json<GameSpeedCommand>,
+) -> impl IntoResponse {
+  if cmd.command == "set_game_speed" {
+    if let Ok(mut status) = game_state.lock() {
+      status.game_speed = cmd.value;
+      println!("Game speed set to: {}", cmd.value);
     }
-  });
-
-  let recv_task = tokio::spawn(async move {
-    while let Some(Ok(msg)) = receiver.next().await {
-      match msg {
-        Message::Text(text) => {
-          if let Ok(cmd) = serde_json::from_str::<GameSpeedCommand>(&text) {
-            if cmd.command == "set_game_speed" {
-              if let Ok(mut game_state_lock) = game_state.lock() {
-                game_state_lock.game_speed = cmd.value;
-                println!("Game speed set to: {}", cmd.value);
-              }
-            }
-          }
-        }
-        Message::Close(_) => break,
-        _ => {}
-      }
-    }
-  });
-
-  tokio::select! {
-      _ = send_task => {},
-      _ = recv_task => {},
   }
+  "OK"
 }
 
 pub async fn start_server(game_state: SharedGameState) {
   let web_dir = std::env::current_dir().unwrap().join("web");
 
   let app = Router::new()
-    .route("/ws", get(websocket_handler))
+    .route("/status", get(status_handler))
+    .route("/command", post(command_handler))
     .nest_service("/", ServeDir::new(web_dir))
     .with_state(game_state);
 
