@@ -162,23 +162,36 @@ fn remove_dead_workers(assignments: &mut HashMap<usize, WorkerAssignment>, worke
 }
 
 fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerAssignment) {
-  if let Some(assigned_mineral_id) = assignment.target_unit {
-    let correct_target = worker
-      .get_target()
-      .map(|t| t.get_id() == assigned_mineral_id)
-      .unwrap_or(false)
-      || worker
-        .get_order_target()
-        .map(|t| t.get_id() == assigned_mineral_id)
-        .unwrap_or(false);
+  let Some(assigned_mineral_id) = assignment.target_unit else {
+    println!("No target unit for gathering assignment");
+    return;
+  };
 
-    if !correct_target && worker.is_idle() {
-      if let Some(mineral) = game.get_unit(assigned_mineral_id) {
-        if mineral.exists() && mineral.get_resources() > 0 {
-          let _ = worker.gather(&mineral);
-        }
-      }
+  let worker_order = worker.get_order();
+
+  if worker_order == Order::ReturnMinerals || worker_order == Order::ResetCollision {
+    return;
+  }
+
+  let Some(mineral) = game.get_unit(assigned_mineral_id) else {
+    println!("Assigned mineral no longer exists"); // should probably handle somewhere else
+    return;
+  };
+
+  if worker_order == Order::MoveToMinerals
+    || worker_order == Order::WaitForMinerals
+    || worker_order == Order::Harvest4
+  {
+    let Some(target) = worker.get_order_target() else {
+      println!("Somehow moving or waiting for minerals without a target");
+      return;
+    };
+
+    if target.get_id() != assigned_mineral_id {
+      println!("worker mining the wrong mineral patch, reissuing gather command");
+      let _ = worker.gather(&mineral);
     }
+    return;
   }
 }
 

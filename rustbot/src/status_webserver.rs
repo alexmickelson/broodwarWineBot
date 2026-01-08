@@ -1,5 +1,5 @@
 use crate::map::generate_map_svg;
-use crate::utils::game_state::{SharedGameState, WorkerAssignment};
+use crate::utils::game_state::{SharedGameState, UnitOrder, WorkerAssignment};
 use axum::extract::ws::{Message, WebSocket};
 use axum::{
   extract::{State, WebSocketUpgrade},
@@ -22,6 +22,9 @@ pub struct StatusUpdate {
   pub worker_assignments: HashMap<usize, WorkerAssignment>,
   pub game_speed: i32,
   pub build_order: Vec<String>,
+  pub build_order_index: usize,
+  pub larva_responsibilities: HashMap<usize, usize>,
+  pub unit_orders: HashMap<usize, UnitOrder>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,6 +63,9 @@ async fn handle_socket(socket: WebSocket, game_state: SharedGameState) {
             .iter()
             .map(|ut| format!("{:?}", ut))
             .collect(),
+          build_order_index: game_state_lock.build_order_index,
+          larva_responsibilities: game_state_lock.larva_responsibilities.clone(),
+          unit_orders: game_state_lock.unit_orders.clone(),
         }
       };
 

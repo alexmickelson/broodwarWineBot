@@ -1,4 +1,5 @@
 use crate::utils::build_order_management;
+use crate::utils::game_state;
 use crate::utils::game_state::SharedGameState;
 use crate::utils::map_status;
 use crate::utils::worker_management;
@@ -29,7 +30,7 @@ impl RustBot {
 impl AiModule for RustBot {
   fn on_start(&mut self, game: &Game) {
     game.send_text("RustBot initialized!");
-    
+
     // SAFETY: rsbwapi uses interior mutability (RefCell) for the command queue.
     // enable_flag only adds a command to the queue.
     // This cast is safe in the single-threaded BWAPI callback context.
@@ -37,7 +38,7 @@ impl AiModule for RustBot {
       let game_ptr = game as *const Game as *mut Game;
       (*game_ptr).enable_flag(Flag::UserInput as i32);
     }
-    
+
     println!("Game started on map: {}", game.map_file_name());
   }
 
@@ -48,12 +49,13 @@ impl AiModule for RustBot {
     worker_management::update_assignments(game, &self.game_state);
     worker_management::enforce_assignments(game, &self.game_state);
 
-
     worker_management::draw_worker_resource_lines(
       game,
       &self.game_state.lock().unwrap().worker_assignments.clone(),
     );
     worker_management::draw_worker_ids(game);
+    
+    game_state::update_unit_orders(game, &self.game_state);
     if game.get_frame_count() % 24 == 0 {
       map_status::update_map_data(game, &self.game_state);
     }

@@ -27,8 +27,8 @@ computer_races:
 game_type: MELEE
 # game_type: TEAM_MELEE
 
-auto_restart: ON
-# auto_restart: OFF
+auto_restart: OFF
+# auto_restart: ON
 
 save_replay: "maps/replays/%BOTNAME6%/$Y $b $d/%MAP%_%BOTRACE%%ALLYRACES%vs%ENEMYRACES%_$H$M$S.rep"
 
