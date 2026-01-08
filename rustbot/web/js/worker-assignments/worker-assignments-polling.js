@@ -38,6 +38,6 @@ export function init() {
       console.log("Worker assignments collapsed - stopping polling");
       stopPolling();
     },
-    defaultExpanded: true,
+    defaultExpanded: false,
   });
 }

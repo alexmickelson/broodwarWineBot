@@ -31,12 +31,12 @@ function renderUnitCard(unitId, order) {
   }
 
   return `
-    <div class="assignment-card" data-unit-id="${unitId}">
-      <div class="worker-header">
-        <span class="worker-label">${order.unit_type}</span>
-        <span class="worker-id-value">#${unitId}</span>
+    <div class="unit-order-card" data-unit-id="${unitId}">
+      <div class="unit-order-header">
+        <span class="unit-type-badge">${order.unit_type}</span>
+        <span class="unit-id-value">#${unitId}</span>
       </div>
-      <div class="assignment-data">
+      <div class="order-data">
         <div class="data-field">
           <span class="field-name">order:</span>
           <span class="field-value order-name">${order.order_name}</span>
@@ -53,9 +53,13 @@ function renderUnitCard(unitId, order) {
 
 export function update(orders) {
   const container = document.getElementById("unit-orders-container");
-  if (!container) return;
+  if (!container) {
+    console.log("unit-orders-container not found");
+    return;
+  }
 
   const entries = Object.entries(orders);
+  console.log("Unit orders update:", entries.length, "units");
 
   if (entries.length === 0) {
     container.innerHTML = '<div class="empty-data">No unit orders</div>';
@@ -63,15 +67,15 @@ export function update(orders) {
   }
 
   // Check if grid exists, if not create it
-  let grid = container.querySelector(".assignments-grid");
+  let grid = container.querySelector(".unit-orders-grid");
   if (!grid) {
-    container.innerHTML = '<div class="assignments-grid"></div>';
-    grid = container.querySelector(".assignments-grid");
+    container.innerHTML = '<div class="unit-orders-grid"></div>';
+    grid = container.querySelector(".unit-orders-grid");
   }
 
   // Get existing unit IDs in the DOM
   const existingCards = new Map();
-  grid.querySelectorAll(".assignment-card").forEach((card) => {
+  grid.querySelectorAll(".unit-order-card").forEach((card) => {
     const unitId = card.dataset.unitId;
     if (unitId) {
       existingCards.set(unitId, card);
@@ -112,10 +116,10 @@ export function update(orders) {
 export function createSection() {
   return `
     <h2>
-      <span class="section-toggle" data-section="unit-orders">▼</span>
+      <span class="section-toggle" data-section="unit-orders">▶</span>
       Unit Orders
     </h2>
-    <div id="unit-orders-container" class="data-structure-container collapsible-content">
+    <div id="unit-orders-container" class="data-structure-container collapsible-content collapsed">
       <div class="loading">Waiting for unit order data...</div>
     </div>
   `;

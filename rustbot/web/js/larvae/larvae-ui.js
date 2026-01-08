@@ -40,10 +40,10 @@ export function update(responsibilities) {
 export function createSection() {
   return `
     <h2>
-      <span class="section-toggle" data-section="larvae-assignments">▼</span>
+      <span class="section-toggle" data-section="larvae-assignments">▶</span>
       Larvae Assignments
     </h2>
-    <div id="larvae-assignments-container" class="data-structure-container collapsible-content">
+    <div id="larvae-assignments-container" class="data-structure-container collapsible-content collapsed">
       <div class="loading">Waiting for larvae data...</div>
     </div>
   `;

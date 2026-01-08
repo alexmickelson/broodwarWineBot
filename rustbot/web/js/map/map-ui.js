@@ -37,10 +37,10 @@ export function createLegend() {
 export function createSection() {
   return `
     <h2>
-      <span class="section-toggle" data-section="map-visualization">▼</span>
+      <span class="section-toggle" data-section="map-visualization">▶</span>
       Map Visualization
     </h2>
-    <div id="map-visualization-container" class="collapsible-content">
+    <div id="map-visualization-container" class="collapsible-content collapsed">
       ${createLegend()}
       <div class="map-container" id="map-container">
         <div class="loading">Waiting for map data...</div>

@@ -158,10 +158,10 @@ export function update(assignments) {
 export function createSection() {
   return `
     <h2>
-      <span class="section-toggle" data-section="worker-assignments">▼</span>
+      <span class="section-toggle" data-section="worker-assignments">▶</span>
       Worker Assignments
     </h2>
-    <div id="worker-assignments-container" class="data-structure-container collapsible-content">
+    <div id="worker-assignments-container" class="data-structure-container collapsible-content collapsed">
       <div class="loading">Waiting for assignment data...</div>
     </div>
   `;

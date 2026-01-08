@@ -38,6 +38,6 @@ export function init() {
       console.log("Map collapsed - stopping polling");
       stopPolling();
     },
-    defaultExpanded: true,
+    defaultExpanded: false,
   });
 }

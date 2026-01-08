@@ -22,8 +22,19 @@ export function registerSection(sectionId, options = {}) {
   if (config.defaultExpanded && config.onExpand) {
     setTimeout(() => config.onExpand(), 0);
   } else if (!config.defaultExpanded) {
-    // Start collapsed
-    setTimeout(() => collapse(sectionId), 0);
+    // Start collapsed - don't call onCollapse since we're just initializing
+    setTimeout(() => {
+      const container = document.getElementById(`${sectionId}-container`);
+      const toggle = document.querySelector(
+        `.section-toggle[data-section="${sectionId}"]`
+      );
+
+      if (container && toggle) {
+        container.classList.add("collapsed");
+        toggle.classList.add("collapsed");
+        toggle.textContent = "▶";
+      }
+    }, 0);
   }
 
   return {

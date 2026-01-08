@@ -38,6 +38,6 @@ export function init() {
       console.log("Larvae assignments collapsed - stopping polling");
       stopPolling();
     },
-    defaultExpanded: true,
+    defaultExpanded: false,
   });
 }
