@@ -1,5 +1,5 @@
 // Generic expandable section component
-// Manages expanding/collapsing UI sections with optional callbacks
+// Manages expanding/collapsing UI sections with smooth animations
 
 const sections = new Map();
 
@@ -15,9 +15,15 @@ export function registerSection(sectionId, options = {}) {
     isExpanded: config.defaultExpanded,
   });
 
-  // If section starts expanded, trigger onExpand callback
+  // Setup the section header to be clickable (defer until DOM is ready)
+  setTimeout(() => setupSectionHeader(sectionId), 0);
+
+  // If section starts expanded, trigger onExpand callback (defer until after setup)
   if (config.defaultExpanded && config.onExpand) {
-    config.onExpand();
+    setTimeout(() => config.onExpand(), 0);
+  } else if (!config.defaultExpanded) {
+    // Start collapsed
+    setTimeout(() => collapse(sectionId), 0);
   }
 
   return {
@@ -26,6 +32,31 @@ export function registerSection(sectionId, options = {}) {
     toggle: () => toggle(sectionId),
     isExpanded: () => sections.get(sectionId)?.isExpanded || false,
   };
+}
+
+function setupSectionHeader(sectionId) {
+  // Find the header element (either by data-section on toggle or by ID pattern)
+  const toggleElement = document.querySelector(
+    `.section-toggle[data-section="${sectionId}"]`
+  );
+
+  if (!toggleElement) return;
+
+  // Make the entire parent (h2) clickable
+  const header = toggleElement.closest("h2");
+  if (header) {
+    header.classList.add("section-header");
+    header.style.cursor = "pointer";
+
+    // Remove any existing click handlers and add new one
+    const clickHandler = (e) => {
+      e.preventDefault();
+      toggle(sectionId);
+    };
+
+    header.removeEventListener("click", clickHandler);
+    header.addEventListener("click", clickHandler);
+  }
 }
 
 export function expand(sectionId) {
@@ -38,7 +69,9 @@ export function expand(sectionId) {
   );
 
   if (container && toggle) {
-    container.style.display = "block";
+    // Remove collapsed class to trigger CSS transition
+    container.classList.remove("collapsed");
+    toggle.classList.remove("collapsed");
     toggle.textContent = "▼";
     section.isExpanded = true;
 
@@ -58,7 +91,9 @@ export function collapse(sectionId) {
   );
 
   if (container && toggle) {
-    container.style.display = "none";
+    // Add collapsed class to trigger CSS transition
+    container.classList.add("collapsed");
+    toggle.classList.add("collapsed");
     toggle.textContent = "▶";
     section.isExpanded = false;
 

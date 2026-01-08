@@ -1,8 +1,6 @@
 use crate::map::generate_map_svg;
 pub use crate::map::{MapData, ResourceInfo, UnitInfo};
-use crate::utils::game_state::{
-  SharedGameState, UnitOrder, WorkerAssignment, WorkerStatusSnapshot,
-};
+use crate::utils::game_state::{SharedGameState, UnitOrder, WorkerAssignment};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{
   extract::State,
@@ -24,6 +22,7 @@ pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStat
     .route("/status", get(status_handler))
     .route("/command", post(command_handler))
     .route("/worker-status", get(worker_status_handler))
+    .route("/unit-orders", get(unit_orders_handler))
     .nest_service("/", ServeDir::new(web_dir))
     .with_state(combined_state);
 
@@ -86,6 +85,12 @@ async fn command_handler(
   "OK"
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct WorkerStatusSnapshot {
+  pub worker_assignments: HashMap<usize, WorkerAssignment>,
+  pub frame_count: i32,
+}
+
 async fn worker_status_handler(
   State((_, callbacks)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
 ) -> impl IntoResponse {
@@ -115,6 +120,46 @@ async fn worker_status_handler(
     Ok(snapshot) => Json(snapshot),
     Err(_) => Json(WorkerStatusSnapshot {
       worker_assignments: HashMap::new(),
+      frame_count: -1,
+    }),
+  }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct UnitOrdersSnapshot {
+  pub unit_orders: HashMap<usize, UnitOrder>,
+  pub frame_count: i32,
+}
+
+async fn unit_orders_handler(
+  State((_, callbacks)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+) -> impl IntoResponse {
+  let (tx, rx) = oneshot::channel();
+
+  let callback = Box::new(
+    move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
+      let snapshot = UnitOrdersSnapshot {
+        unit_orders: state.unit_orders.clone(),
+        frame_count: _game.get_frame_count(),
+      };
+      let _ = tx.send(snapshot);
+    },
+  );
+
+  if let Ok(mut callbacks_lock) = callbacks.lock() {
+    callbacks_lock.add_callback(callback);
+  } else {
+    return Json(UnitOrdersSnapshot {
+      unit_orders: HashMap::new(),
+      frame_count: -1,
+    });
+  }
+
+  // Wait for the callback to be invoked from the game thread
+  match rx.await {
+    Ok(snapshot) => Json(snapshot),
+    Err(_) => Json(UnitOrdersSnapshot {
+      unit_orders: HashMap::new(),
       frame_count: -1,
     }),
   }

@@ -1,0 +1,58 @@
+/* Expandable Section Component Styles */
+
+/* Section header - make it interactive */
+.section-header {
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border-primary);
+  padding: 10px 5px;
+  margin: 20px 0 0 0;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-text-accent);
+  color: var(--color-text-accent);
+  padding-left: 10px;
+  box-shadow: 0 2px 8px var(--shadow-accent);
+}
+
+.section-toggle {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  font-size: 0.9em;
+  min-width: 20px;
+}
+
+.section-toggle.collapsed {
+  transform: rotate(-90deg);
+}
+
+/* Collapsible content container */
+.collapsible-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out,
+    margin 0.3s ease-out;
+  max-height: 5000px;
+  opacity: 1;
+  margin-bottom: 20px;
+}
+
+.collapsible-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+/* Alternative h2 styling when used as section header */
+h2.section-header {
+  font-size: 1.17em;
+  font-weight: bold;
+  margin: 20px 0 0 0;
+}

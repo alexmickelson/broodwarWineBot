@@ -1,73 +1,111 @@
-// Unit orders feature
+// Unit orders UI rendering
 
-export function render(orders) {
-  const entries = Object.entries(orders);
-
-  if (entries.length === 0) {
-    return '<div class="empty-data">No unit orders</div>';
-  }
-
-  let html = '<div class="assignments-grid">';
-
-  for (const [unitId, order] of entries) {
-    let targetDisplay = "";
-    if (order.target_id !== null && order.target_id !== undefined) {
-      targetDisplay += `
-        <div class="data-field">
-          <span class="field-name">target_id:</span>
-          <span class="field-value number">${order.target_id}</span>
-        </div>
-      `;
-    }
-
-    if (order.target_type) {
-      targetDisplay += `
-        <div class="data-field">
-          <span class="field-name">target_type:</span>
-          <span class="field-value enum">${order.target_type}</span>
-        </div>
-      `;
-    }
-
-    if (order.target_position) {
-      const [x, y] = order.target_position;
-      targetDisplay += `
-        <div class="data-field">
-          <span class="field-name">target_position:</span>
-          <span class="field-value tuple">(${x}, ${y})</span>
-        </div>
-      `;
-    }
-
-    html += `
-      <div class="assignment-card">
-        <div class="worker-header">
-          <span class="worker-label">${order.unit_type}</span>
-          <span class="worker-id-value">#${unitId}</span>
-        </div>
-        <div class="assignment-data">
-          <div class="data-field">
-            <span class="field-name">order:</span>
-            <span class="field-value enum">${order.order_name}</span>
-          </div>
-          <div class="data-field">
-            <span class="field-name">position:</span>
-            <span class="field-value tuple">(${order.current_position[0]}, ${order.current_position[1]})</span>
-          </div>
-          ${targetDisplay}
-        </div>
+function renderUnitCard(unitId, order) {
+  let targetDisplay = "";
+  if (order.target_id !== null && order.target_id !== undefined) {
+    targetDisplay += `
+      <div class="data-field">
+        <span class="field-name">target_id:</span>
+        <span class="field-value number">${order.target_id}</span>
       </div>
     `;
   }
 
-  html += "</div>";
-  return html;
+  if (order.target_type) {
+    targetDisplay += `
+      <div class="data-field">
+        <span class="field-name">target_type:</span>
+        <span class="field-value target-type">${order.target_type}</span>
+      </div>
+    `;
+  }
+
+  if (order.target_position) {
+    const [x, y] = order.target_position;
+    targetDisplay += `
+      <div class="data-field">
+        <span class="field-name">target_position:</span>
+        <span class="field-value tuple">(${x}, ${y})</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="assignment-card" data-unit-id="${unitId}">
+      <div class="worker-header">
+        <span class="worker-label">${order.unit_type}</span>
+        <span class="worker-id-value">#${unitId}</span>
+      </div>
+      <div class="assignment-data">
+        <div class="data-field">
+          <span class="field-name">order:</span>
+          <span class="field-value order-name">${order.order_name}</span>
+        </div>
+        <div class="data-field">
+          <span class="field-name">position:</span>
+          <span class="field-value tuple">(${order.current_position[0]}, ${order.current_position[1]})</span>
+        </div>
+        ${targetDisplay}
+      </div>
+    </div>
+  `;
 }
 
 export function update(orders) {
   const container = document.getElementById("unit-orders-container");
-  if (container) {
-    container.innerHTML = render(orders);
+  if (!container) return;
+
+  const entries = Object.entries(orders);
+
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="empty-data">No unit orders</div>';
+    return;
+  }
+
+  // Check if grid exists, if not create it
+  let grid = container.querySelector(".assignments-grid");
+  if (!grid) {
+    container.innerHTML = '<div class="assignments-grid"></div>';
+    grid = container.querySelector(".assignments-grid");
+  }
+
+  // Get existing unit IDs in the DOM
+  const existingCards = new Map();
+  grid.querySelectorAll(".assignment-card").forEach((card) => {
+    const unitId = card.dataset.unitId;
+    if (unitId) {
+      existingCards.set(unitId, card);
+    }
+  });
+
+  // Get new unit IDs
+  const newUnitIds = new Set(entries.map(([unitId]) => unitId));
+
+  // Remove cards that no longer exist
+  existingCards.forEach((card, unitId) => {
+    if (!newUnitIds.has(unitId)) {
+      card.remove();
+    }
+  });
+
+  // Update or add cards
+  for (const [unitId, order] of entries) {
+    const existingCard = existingCards.get(unitId);
+    const newCardHtml = renderUnitCard(unitId, order);
+
+    if (existingCard) {
+      // Update existing card
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = newCardHtml;
+      const newCard = tempDiv.firstElementChild;
+
+      if (existingCard.outerHTML !== newCard.outerHTML) {
+        existingCard.replaceWith(newCard);
+      }
+    } else {
+      // Add new card
+      grid.insertAdjacentHTML("beforeend", newCardHtml);
+    }
   }
 }
 

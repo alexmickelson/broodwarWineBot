@@ -2,7 +2,8 @@
 
 /* Base styles (variables, body, container, common utilities) */
 @import url("base.css");
-
+/* Component styles */
+@import url("js/expandable-section.css");
 /* Feature-specific styles */
 @import url("js/game-speed/game-speed.css");
 @import url("js/map/map.css");

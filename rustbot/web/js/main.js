@@ -1,10 +1,10 @@
 // Main application entry point
 import * as service from "./service.js";
 import * as ui from "./ui.js";
-import * as state from "./state.js";
 import * as pollingControls from "./pollingControls.js";
 import * as expandableSection from "./expandable-section.js";
-import * as workerAssignmentsSection from "./worker-assignments/worker-assignments-section.js";
+import * as workerAssignmentsPolling from "./worker-assignments/worker-assignments-polling.js";
+import * as unitOrdersPolling from "./unit-orders/unit-orders-polling.js";
 
 let poller = null;
 let isConnected = false;
@@ -53,13 +53,8 @@ function setupEventListeners() {
     });
   });
 
-  // Section toggle listeners
-  document.addEventListener("click", (e) => {
-    if (e.target.classList.contains("section-toggle")) {
-      const section = e.target.dataset.section;
-      expandableSection.toggle(section);
-    }
-  });
+  // Section toggle listeners are now set up by expandable-section.js
+  // when sections are registered
 
   // Reconnect on visibility change
   document.addEventListener("visibilitychange", () => {
@@ -74,7 +69,8 @@ function init() {
   ui.init();
 
   // Initialize expandable sections
-  workerAssignmentsSection.init();
+  workerAssignmentsPolling.init();
+  unitOrdersPolling.init();
 
   // Set up event listeners
   setupEventListeners();

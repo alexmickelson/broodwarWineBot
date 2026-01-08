@@ -62,13 +62,6 @@ pub struct UnitOrder {
   pub current_position: (i32, i32),
   pub target_position: Option<(i32, i32)>,
 }
-
-#[derive(Clone, Debug, Serialize)]
-pub struct WorkerStatusSnapshot {
-  pub worker_assignments: HashMap<usize, WorkerAssignment>,
-  pub frame_count: i32,
-}
-
 pub struct GameState {
   pub map_data: MapData,
   pub worker_assignments: HashMap<usize, WorkerAssignment>,

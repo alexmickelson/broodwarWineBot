@@ -32,3 +32,11 @@ export async function fetchWorkerStatus() {
   }
   return response.json();
 }
+
+export async function fetchUnitOrders() {
+  const response = await fetch(`${BASE_URL}/unit-orders`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.json();
+}
