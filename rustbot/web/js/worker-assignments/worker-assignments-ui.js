@@ -1,36 +1,57 @@
-// Worker assignments feature
-import * as service from "../service.js";
-import * as pollingControls from "../pollingControls.js";
+// Worker assignments UI rendering
 
-let poller = null;
-
-export function startPolling() {
-  if (poller) {
-    return; // Already registered
-  }
-
-  console.log("Registering worker assignments polling...");
-
-  poller = pollingControls.registerPoller("worker-assignments", async () => {
-    const data = await service.fetchWorkerStatus();
-    update(data.worker_assignments);
-  });
-
-  poller.start();
+function renderWorkerCard(item, typeClass) {
+  return `
+    <div class="assignment-card" data-worker-id="${item.workerId}">
+      <div class="worker-header">
+        <span class="worker-label">Worker</span>
+        <span class="worker-id-value">#${item.workerId}</span>
+      </div>
+      <div class="assignment-data">
+        <div class="data-field">
+          <span class="field-name">assignment_type:</span>
+          <span class="field-value enum ${typeClass}">${
+    item.assignment_type
+  }</span>
+        </div>
+        ${renderTargetDisplay(item)}
+      </div>
+    </div>
+  `;
 }
 
-export function stopPolling() {
-  if (poller) {
-    poller.stop();
-    console.log("Stopped worker assignments polling");
+function renderTargetDisplay(item) {
+  let targetDisplay = "";
+  if (item.target_unit !== null && item.target_unit !== undefined) {
+    targetDisplay += `
+      <div class="data-field">
+        <span class="field-name">target_unit:</span>
+        <span class="field-value number">${item.target_unit}</span>
+      </div>
+    `;
   }
+
+  if (item.target_position) {
+    const [x, y] = item.target_position;
+    targetDisplay += `
+      <div class="data-field">
+        <span class="field-name">target_position:</span>
+        <span class="field-value tuple">(${x}, ${y})</span>
+      </div>
+    `;
+  }
+  return targetDisplay;
 }
 
-export function render(assignments) {
+export function update(assignments) {
+  const container = document.getElementById("worker-assignments-container");
+  if (!container) return;
+
   const entries = Object.entries(assignments);
 
   if (entries.length === 0) {
-    return '<div class="empty-data">No worker assignments</div>';
+    container.innerHTML = '<div class="empty-data">No worker assignments</div>';
+    return;
   }
 
   const grouped = { Gathering: [], Scouting: [], Building: [] };
@@ -39,71 +60,99 @@ export function render(assignments) {
     grouped[assignment.assignment_type].push({ workerId, ...assignment });
   }
 
-  let html = '<div class="assignments-grid">';
+  // Check if grid exists, if not create it
+  let grid = container.querySelector(".assignments-grid");
+  if (!grid) {
+    container.innerHTML = '<div class="assignments-grid"></div>';
+    grid = container.querySelector(".assignments-grid");
+  }
 
+  // Update each assignment group
   for (const [type, items] of Object.entries(grouped)) {
-    if (items.length === 0) continue;
-
     const typeClass = type.toLowerCase();
-    html += `
-      <div class="assignment-group ${typeClass}">
-        <div class="group-header">
-          <h3>${type}</h3>
-          <span class="count-badge">${items.length}</span>
-        </div>
-        <div class="assignment-list">
-    `;
+    let group = grid.querySelector(`.assignment-group.${typeClass}`);
 
-    for (const item of items) {
-      let targetDisplay = "";
-      if (item.target_unit !== null && item.target_unit !== undefined) {
-        targetDisplay += `
-          <div class="data-field">
-            <span class="field-name">target_unit:</span>
-            <span class="field-value number">${item.target_unit}</span>
-          </div>
-        `;
-      }
-
-      if (item.target_position) {
-        const [x, y] = item.target_position;
-        targetDisplay += `
-          <div class="data-field">
-            <span class="field-name">target_position:</span>
-            <span class="field-value tuple">(${x}, ${y})</span>
-          </div>
-        `;
-      }
-
-      html += `
-        <div class="assignment-card">
-          <div class="worker-header">
-            <span class="worker-label">Worker</span>
-            <span class="worker-id-value">#${item.workerId}</span>
-          </div>
-          <div class="assignment-data">
-            <div class="data-field">
-              <span class="field-name">assignment_type:</span>
-              <span class="field-value enum ${typeClass}">${item.assignment_type}</span>
-            </div>
-            ${targetDisplay}
-          </div>
-        </div>
-      `;
+    if (items.length === 0) {
+      // Remove group if it exists and has no items
+      if (group) group.remove();
+      continue;
     }
 
-    html += "</div></div>";
+    // Create group if it doesn't exist
+    if (!group) {
+      const groupHtml = `
+        <div class="assignment-group ${typeClass}">
+          <div class="group-header">
+            <h3>${type}</h3>
+            <span class="count-badge">${items.length}</span>
+          </div>
+          <div class="assignment-list"></div>
+        </div>
+      `;
+      grid.insertAdjacentHTML("beforeend", groupHtml);
+      group = grid.querySelector(`.assignment-group.${typeClass}`);
+    }
+
+    // Update count badge
+    const countBadge = group.querySelector(".count-badge");
+    if (countBadge) {
+      countBadge.textContent = items.length;
+    }
+
+    const list = group.querySelector(".assignment-list");
+    if (!list) continue;
+
+    // Get existing worker IDs in the DOM
+    const existingCards = new Map();
+    list.querySelectorAll(".assignment-card").forEach((card) => {
+      const workerId = card.dataset.workerId;
+      if (workerId) {
+        existingCards.set(workerId, card);
+      }
+    });
+
+    // Get new worker IDs
+    const newWorkerIds = new Set(items.map((item) => item.workerId));
+
+    // Remove cards that no longer exist
+    existingCards.forEach((card, workerId) => {
+      if (!newWorkerIds.has(workerId)) {
+        card.remove();
+      }
+    });
+
+    // Update or add cards
+    items.forEach((item) => {
+      const existingCard = existingCards.get(item.workerId);
+      const newCardHtml = renderWorkerCard(item, typeClass);
+
+      if (existingCard) {
+        // Update existing card
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = newCardHtml;
+        const newCard = tempDiv.firstElementChild;
+
+        if (existingCard.outerHTML !== newCard.outerHTML) {
+          existingCard.replaceWith(newCard);
+        }
+      } else {
+        // Add new card
+        list.insertAdjacentHTML("beforeend", newCardHtml);
+      }
+    });
   }
 
-  html += "</div>";
-  return html;
-}
-
-export function update(assignments) {
-  const container = document.getElementById("worker-assignments-container");
-  if (container) {
-    container.innerHTML = render(assignments);
-  }
+  // Remove empty groups
+  grid.querySelectorAll(".assignment-group").forEach((group) => {
+    const type = group.classList.contains("gathering")
+      ? "Gathering"
+      : group.classList.contains("scouting")
+      ? "Scouting"
+      : "Building";
+    if (grouped[type].length === 0) {
+      group.remove();
+    }
+  });
 }
 
 export function createSection() {

@@ -31,9 +31,6 @@ export function init() {
   // Render poll speed buttons
   document.getElementById("poll-speed-controls").innerHTML =
     gameSpeed.createPollSpeedButtons();
-
-  // Start worker assignments independent polling
-  workerAssignments.startPolling();
 }
 
 export function updateGameSpeed(speed) {

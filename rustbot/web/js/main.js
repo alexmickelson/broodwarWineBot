@@ -3,6 +3,8 @@ import * as service from "./service.js";
 import * as ui from "./ui.js";
 import * as state from "./state.js";
 import * as pollingControls from "./pollingControls.js";
+import * as expandableSection from "./expandable-section.js";
+import * as workerAssignmentsSection from "./worker-assignments/worker-assignments-section.js";
 
 let poller = null;
 let isConnected = false;
@@ -55,7 +57,7 @@ function setupEventListeners() {
   document.addEventListener("click", (e) => {
     if (e.target.classList.contains("section-toggle")) {
       const section = e.target.dataset.section;
-      state.toggleSection(section);
+      expandableSection.toggle(section);
     }
   });
 
@@ -70,6 +72,9 @@ function setupEventListeners() {
 function init() {
   // Generate entire UI
   ui.init();
+
+  // Initialize expandable sections
+  workerAssignmentsSection.init();
 
   // Set up event listeners
   setupEventListeners();
