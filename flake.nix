@@ -99,7 +99,7 @@
 
       in
       {
-        devShells.default = pkgs.mkShell {
+        devShells.default = pkgs.mkShell (shellEnv // {
           buildInputs = buildInputs ++ nativeBuildInputs ++ [
             buildScript
             buildDebugScript
@@ -129,7 +129,7 @@
             echo "  check-rustbot        - Quick check without building"
             echo "  clean-rustbot        - Clean build artifacts"
           '';
-        };
+        });
 
         packages = {
           # Build the Windows executable

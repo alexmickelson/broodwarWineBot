@@ -7,22 +7,23 @@ echo "========================================"
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-export WINEPREFIX="$SCRIPT_DIR/.wine"
+export WINEPREFIX="$PROJECT_DIR/.wine"
 export WINEARCH=win64
 export DISPLAY=:0
 export WINEDLLOVERRIDES="mscoree,mshtml="
 export WINEDEBUG=-all
 
 
-INSTALL_DIR="$SCRIPT_DIR/starcraft"
+INSTALL_DIR="$PROJECT_DIR/starcraft"
 
 SC_WIN_PATH="$(winepath -w "$INSTALL_DIR" 2>/dev/null || echo "Z:${INSTALL_DIR}" | sed 's/\//\\\\/g')\\\\"
 
-if wine REG QUERY "HKEY_LOCAL_MACHINE\\SOFTWARE\\Blizzard Entertainment\\Starcraft" /v InstallPath >/dev/null 2>&1; then
-    echo "Registry already configured, skipping..."
-    exit 0
-fi
+# if wine REG QUERY "HKEY_LOCAL_MACHINE\\SOFTWARE\\Blizzard Entertainment\\Starcraft" /v InstallPath >/dev/null 2>&1; then
+#     echo "Registry already configured, skipping..."
+#     exit 0
+# fi
 
 echo "Configuring registry..."
 # Core registry entries

@@ -42,8 +42,9 @@ cd scripts
     ./4-configure-bwapi.sh
 cd ..
 
-# echo "Building RustBot..."
+echo "Building RustBot..."
 # build-rustbot-debug
+nix develop -c build-rustbot-debug
 echo "Starting RustBot..."
 cd "$SCRIPT_DIR/rustbot"
 
