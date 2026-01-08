@@ -1,0 +1,55 @@
+/* Build Order Styles */
+.build-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.build-order-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 15px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 5px;
+}
+
+.build-order-item.completed {
+  opacity: 0.5;
+  background: var(--color-bg-tertiary);
+}
+
+.build-order-item.current {
+  border: 2px solid var(--color-text-accent);
+  box-shadow: 0 0 10px var(--shadow-accent);
+  background: var(--color-bg-secondary);
+}
+
+.build-order-index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  background: var(--color-border-primary);
+  color: var(--color-text-primary);
+  font-weight: bold;
+  border-radius: 50%;
+  font-size: 0.9em;
+}
+
+.build-order-item.current .build-order-index {
+  background: var(--color-text-accent);
+  box-shadow: var(--shadow-success);
+}
+
+.build-order-item.completed .build-order-index {
+  background: var(--color-gathering);
+}
+
+.build-order-unit {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  font-size: 1.05em;
+}

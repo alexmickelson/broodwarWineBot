@@ -25,14 +25,15 @@ export function registerPoller(name, callback) {
 
   const poller = {
     name,
-    isActive: false,
+    get isActive() {
+      return isActive;
+    },
 
     start() {
       if (isActive) return;
 
       console.log(`Starting poller: ${name}`);
       isActive = true;
-      this.isActive = true;
 
       // Initial call
       callback().catch((err) => {
@@ -54,7 +55,6 @@ export function registerPoller(name, callback) {
 
       console.log(`Stopping poller: ${name}`);
       isActive = false;
-      this.isActive = false;
 
       if (intervalId) {
         clearInterval(intervalId);
@@ -63,8 +63,8 @@ export function registerPoller(name, callback) {
     },
 
     restart() {
-      this.stop();
-      this.start();
+      poller.stop();
+      poller.start();
     },
   };
 

@@ -1,0 +1,72 @@
+/* Game Speed Control Styles */
+.speed-btn {
+  background: var(--color-border-primary);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-text-accent);
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+  font-size: 0.95em;
+}
+
+.speed-btn:hover {
+  background: var(--color-text-accent);
+  color: var(--color-bg-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-accent);
+}
+
+.speed-btn:active {
+  transform: translateY(0);
+}
+
+.speed-btn.active {
+  background: var(--color-text-accent);
+  color: var(--color-bg-primary);
+  box-shadow: 0 0 12px var(--shadow-accent);
+  border-color: var(--color-success);
+}
+
+.poll-speed-btn {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  border: 2px solid var(--color-border-accent);
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  font-size: 0.9em;
+}
+
+.poll-speed-btn:hover {
+  background: var(--color-border-accent);
+  color: var(--color-text-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-accent);
+}
+
+.poll-speed-btn:active {
+  transform: translateY(0);
+}
+
+.poll-speed-btn.active {
+  background: var(--color-border-accent);
+  color: var(--color-text-primary);
+  box-shadow: 0 0 8px var(--shadow-accent);
+  border-color: var(--color-text-secondary);
+}
+
+.current-speed {
+  color: var(--color-text-secondary);
+  font-size: 1.1em;
+}
+
+.current-speed span {
+  color: var(--color-text-accent);
+  font-weight: bold;
+  font-family: monospace;
+  font-size: 1.2em;
+}
