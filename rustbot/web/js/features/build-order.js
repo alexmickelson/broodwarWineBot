@@ -1,6 +1,6 @@
 // Build order feature
 
-export function render(buildOrder) {
+export function render(buildOrder, currentIndex) {
   if (!buildOrder || buildOrder.length === 0) {
     return '<div class="empty-data">No build order set</div>';
   }
@@ -9,9 +9,12 @@ export function render(buildOrder) {
 
   buildOrder.forEach((unit, index) => {
     const displayName = unit.replace(/^(Terran|Protoss|Zerg)_/, "");
+    const isCurrent = index === currentIndex;
+    const isComplete = index < currentIndex;
+    const statusClass = isComplete ? "completed" : isCurrent ? "current" : "";
 
     html += `
-      <div class="build-order-item">
+      <div class="build-order-item ${statusClass}">
         <span class="build-order-index">${index + 1}</span>
         <span class="build-order-unit">${displayName}</span>
       </div>
@@ -22,10 +25,10 @@ export function render(buildOrder) {
   return html;
 }
 
-export function update(buildOrder) {
+export function update(buildOrder, currentIndex) {
   const container = document.getElementById("build-order-container");
   if (container) {
-    container.innerHTML = render(buildOrder);
+    container.innerHTML = render(buildOrder, currentIndex);
   }
 }
 

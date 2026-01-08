@@ -1,4 +1,6 @@
-use crate::utils::game_state::{GameState, SharedGameState, WorkerAssignment, WorkerAssignmentType};
+use crate::utils::game_state::{
+  GameState, SharedGameState, WorkerAssignment, WorkerAssignmentType,
+};
 use rsbwapi::*;
 use std::collections::HashMap;
 
@@ -134,12 +136,12 @@ fn build_building(game: &Game, game_state: &mut GameState, unit_type: UnitType) 
   let drone_id = drone.get_id() as usize;
   let build_position = (build_location.x * 32, build_location.y * 32);
   let current_build_idx = game_state.build_order_index;
-  
+
   game_state.worker_assignments.insert(
     drone_id,
     WorkerAssignment::building(None, build_position, current_build_idx),
   );
-  
+
   println!(
     "Assigned drone {} to build {:?} at position {:?} for build order index {}",
     drone_id, unit_type, build_position, current_build_idx

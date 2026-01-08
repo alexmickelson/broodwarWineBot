@@ -37,12 +37,20 @@ export function updateWorkerAssignments(assignments) {
   workerAssignments.update(assignments);
 }
 
-export function updateBuildOrder(order) {
-  buildOrder.update(order);
+export function updateBuildOrder(order, currentIndex) {
+  buildOrder.update(order, currentIndex);
 }
 
 export function updateMap(mapSvg) {
   map.update(mapSvg);
+}
+
+export function updateLarvaeAssignments(responsibilities) {
+  larvae.update(responsibilities);
+}
+
+export function updateUnitOrders(orders) {
+  unitOrders.update(orders);
 }
 
 export function update(data) {
@@ -56,8 +64,16 @@ export function update(data) {
     updateWorkerAssignments(data.worker_assignments);
   }
 
+  if (data.larva_responsibilities) {
+    updateLarvaeAssignments(data.larva_responsibilities);
+  }
+
+  if (data.unit_orders) {
+    updateUnitOrders(data.unit_orders);
+  }
+
   if (data.build_order) {
-    updateBuildOrder(data.build_order);
+    updateBuildOrder(data.build_order, data.build_order_index);
   }
 
   if (data.map_svg) {

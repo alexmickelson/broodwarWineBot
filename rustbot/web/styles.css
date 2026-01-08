@@ -522,6 +522,17 @@ h2 {
   border-radius: 5px;
 }
 
+.build-order-item.completed {
+  opacity: 0.5;
+  background: var(--color-bg-tertiary);
+}
+
+.build-order-item.current {
+  border: 2px solid var(--color-text-accent);
+  box-shadow: 0 0 10px var(--shadow-accent);
+  background: var(--color-bg-secondary);
+}
+
 .build-order-index {
   display: flex;
   align-items: center;
@@ -533,6 +544,15 @@ h2 {
   font-weight: bold;
   border-radius: 50%;
   font-size: 0.9em;
+}
+
+.build-order-item.current .build-order-index {
+  background: var(--color-text-accent);
+  box-shadow: var(--shadow-success);
+}
+
+.build-order-item.completed .build-order-index {
+  background: var(--color-gathering);
 }
 
 .build-order-unit {
