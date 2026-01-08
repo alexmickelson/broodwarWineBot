@@ -16,6 +16,7 @@ pub struct WorkerAssignment {
   pub assignment_type: WorkerAssignmentType,
   pub target_unit: Option<usize>,
   pub target_position: Option<(i32, i32)>,
+  pub build_order_index: Option<usize>,
 }
 
 impl WorkerAssignment {
@@ -24,15 +25,16 @@ impl WorkerAssignment {
       assignment_type: WorkerAssignmentType::Gathering,
       target_unit: Some(target_unit),
       target_position: None,
+      build_order_index: None,
     }
   }
 
-  #[allow(dead_code)]
-  pub fn building(target_unit: Option<usize>, target_position: (i32, i32)) -> Self {
+  pub fn building(target_unit: Option<usize>, target_position: (i32, i32), build_order_index: usize) -> Self {
     Self {
       assignment_type: WorkerAssignmentType::Building,
       target_unit,
       target_position: Some(target_position),
+      build_order_index: Some(build_order_index),
     }
   }
 
@@ -41,6 +43,7 @@ impl WorkerAssignment {
       assignment_type: WorkerAssignmentType::Scouting,
       target_unit: None,
       target_position: Some(target_position),
+      build_order_index: None,
     }
   }
 }

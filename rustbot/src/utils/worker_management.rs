@@ -99,7 +99,7 @@ pub fn enforce_assignments(game: &Game, game_state: &SharedGameState) {
           enforce_scouting_assignment(worker, assignment);
         }
         WorkerAssignmentType::Building => {
-          enforce_building_assignment(worker);
+          enforce_building_assignment(game, worker, assignment);
         }
       }
     }
@@ -207,7 +207,14 @@ fn enforce_scouting_assignment(worker: &Unit, assignment: &WorkerAssignment) {
   }
 }
 
-fn enforce_building_assignment(_worker: &Unit) {}
+fn enforce_building_assignment(game: &Game, worker: &Unit, assignment: &WorkerAssignment) {
+  let worker_order = worker.get_order();
+
+  
+  // TODO: need to actually have builder build
+
+
+}
 
 fn find_least_saturated_mineral<'a>(
   minerals: &[&'a Unit],
