@@ -1,5 +1,9 @@
 use crate::map::generate_map_svg;
-use crate::utils::game_state::{SharedGameState, UnitOrder, WorkerAssignment};
+pub use crate::map::{MapData, ResourceInfo, UnitInfo};
+use crate::utils::game_state::{
+  SharedGameState, UnitOrder, WorkerAssignment, WorkerStatusSnapshot,
+};
+use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{
   extract::State,
   response::IntoResponse,
@@ -8,10 +12,28 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tokio::sync::oneshot;
 use tower_http::services::ServeDir;
 
-// Re-export map types
-pub use crate::map::{MapData, ResourceInfo, UnitInfo};
+pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStatusCallbacks) {
+  let web_dir = std::env::current_dir().unwrap().join("web");
+
+  let combined_state = (game_state, callbacks);
+
+  let app = Router::new()
+    .route("/status", get(status_handler))
+    .route("/command", post(command_handler))
+    .route("/worker-status", get(worker_status_handler))
+    .nest_service("/", ServeDir::new(web_dir))
+    .with_state(combined_state);
+
+  let listener = tokio::net::TcpListener::bind("127.0.0.1:3333")
+    .await
+    .unwrap();
+
+  println!("Status server running on http://127.0.0.1:3333");
+  axum::serve(listener, app).await.unwrap();
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StatusUpdate {
@@ -30,7 +52,9 @@ pub struct GameSpeedCommand {
   pub value: i32,
 }
 
-async fn status_handler(State(game_state): State<SharedGameState>) -> Json<StatusUpdate> {
+async fn status_handler(
+  State((game_state, _)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+) -> Json<StatusUpdate> {
   let status = game_state.lock().unwrap();
   let map_svg = generate_map_svg(&status.map_data);
 
@@ -50,7 +74,7 @@ async fn status_handler(State(game_state): State<SharedGameState>) -> Json<Statu
 }
 
 async fn command_handler(
-  State(game_state): State<SharedGameState>,
+  State((game_state, _)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
   Json(cmd): Json<GameSpeedCommand>,
 ) -> impl IntoResponse {
   if cmd.command == "set_game_speed" {
@@ -62,19 +86,36 @@ async fn command_handler(
   "OK"
 }
 
-pub async fn start_server(game_state: SharedGameState) {
-  let web_dir = std::env::current_dir().unwrap().join("web");
+async fn worker_status_handler(
+  State((_, callbacks)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+) -> impl IntoResponse {
+  let (tx, rx) = oneshot::channel();
 
-  let app = Router::new()
-    .route("/status", get(status_handler))
-    .route("/command", post(command_handler))
-    .nest_service("/", ServeDir::new(web_dir))
-    .with_state(game_state);
+  let callback = Box::new(
+    move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
+      let snapshot = WorkerStatusSnapshot {
+        worker_assignments: state.worker_assignments.clone(),
+        frame_count: _game.get_frame_count(),
+      };
+      let _ = tx.send(snapshot);
+    },
+  );
 
-  let listener = tokio::net::TcpListener::bind("127.0.0.1:3333")
-    .await
-    .unwrap();
+  if let Ok(mut callbacks_lock) = callbacks.lock() {
+    callbacks_lock.add_callback(callback);
+  } else {
+    return Json(WorkerStatusSnapshot {
+      worker_assignments: HashMap::new(),
+      frame_count: -1,
+    });
+  }
 
-  println!("Status server running on http://127.0.0.1:3333");
-  axum::serve(listener, app).await.unwrap();
+  // Wait for the callback to be invoked from the game thread
+  match rx.await {
+    Ok(snapshot) => Json(snapshot),
+    Err(_) => Json(WorkerStatusSnapshot {
+      worker_assignments: HashMap::new(),
+      frame_count: -1,
+    }),
+  }
 }

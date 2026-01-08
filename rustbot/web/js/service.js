@@ -24,3 +24,11 @@ export async function sendCommand(command, value) {
 export async function setGameSpeed(speed) {
   return sendCommand("set_game_speed", speed);
 }
+
+export async function fetchWorkerStatus() {
+  const response = await fetch(`${BASE_URL}/worker-status`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.json();
+}

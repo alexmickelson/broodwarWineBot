@@ -56,6 +56,22 @@ body {
   border-bottom: 2px solid var(--color-border-primary);
 }
 
+.controls-row {
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+}
+
+.control-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.control-group h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
 .scrollable-content {
   flex: 1;
   overflow-y: auto;
@@ -126,6 +142,36 @@ h2 {
   color: var(--color-bg-primary);
   box-shadow: 0 0 12px var(--shadow-accent);
   border-color: var(--color-success);
+}
+
+.poll-speed-btn {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  border: 2px solid var(--color-border-accent);
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  font-size: 0.9em;
+}
+
+.poll-speed-btn:hover {
+  background: var(--color-border-accent);
+  color: var(--color-text-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-accent);
+}
+
+.poll-speed-btn:active {
+  transform: translateY(0);
+}
+
+.poll-speed-btn.active {
+  background: var(--color-border-accent);
+  color: var(--color-text-primary);
+  box-shadow: 0 0 8px var(--shadow-accent);
+  border-color: var(--color-text-secondary);
 }
 
 .current-speed {

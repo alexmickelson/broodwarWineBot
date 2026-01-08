@@ -2,42 +2,30 @@
 import * as service from "./service.js";
 import * as ui from "./ui.js";
 import * as state from "./state.js";
+import * as pollingControls from "./pollingControls.js";
 
-let pollInterval = null;
+let poller = null;
 let isConnected = false;
 
 function startPolling() {
-  console.log("Starting polling...");
+  if (poller) {
+    return; // Already registered
+  }
 
-  // Poll every 500ms
-  pollInterval = setInterval(async () => {
-    try {
-      const data = await service.fetchStatus();
+  console.log("Registering main status polling...");
 
-      if (!isConnected) {
-        isConnected = true;
-        console.log("Connected to server");
-      }
+  poller = pollingControls.registerPoller("main-status", async () => {
+    const data = await service.fetchStatus();
 
-      ui.update(data);
-    } catch (err) {
-      if (isConnected) {
-        isConnected = false;
-        console.error("Polling error:", err);
-      }
-    }
-  }, 500);
-
-  // Do initial poll immediately
-  service
-    .fetchStatus()
-    .then((data) => {
+    if (!isConnected) {
       isConnected = true;
-      ui.update(data);
-    })
-    .catch((err) => {
-      console.error("Initial poll error:", err);
-    });
+      console.log("Connected to server");
+    }
+
+    ui.update(data);
+  });
+
+  poller.start();
 }
 
 function setupEventListeners() {
@@ -46,6 +34,20 @@ function setupEventListeners() {
     btn.addEventListener("click", () => {
       const speed = parseInt(btn.dataset.speed);
       service.setGameSpeed(speed);
+    });
+  });
+
+  // Poll speed button listeners
+  document.querySelectorAll(".poll-speed-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const speed = parseInt(btn.dataset.pollSpeed);
+      pollingControls.setPollInterval(speed);
+
+      // Update active button state
+      document.querySelectorAll(".poll-speed-btn").forEach((b) => {
+        b.classList.remove("active");
+      });
+      btn.classList.add("active");
     });
   });
 

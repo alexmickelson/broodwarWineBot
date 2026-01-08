@@ -1,11 +1,11 @@
 // UI update and rendering logic
 import * as state from "./state.js";
-import * as buildOrder from "./features/build-order.js";
-import * as workerAssignments from "./features/worker-assignments.js";
-import * as larvae from "./features/larvae.js";
-import * as unitOrders from "./features/unit-orders.js";
-import * as map from "./features/map.js";
-import * as gameSpeed from "./features/game-speed.js";
+import * as buildOrder from "./build-order/build-order-ui.js";
+import * as workerAssignments from "./worker-assignments/worker-assignments-ui.js";
+import * as larvae from "./larvae/larvae-ui.js";
+import * as unitOrders from "./unit-orders/unit-orders-ui.js";
+import * as map from "./map/map-ui.js";
+import * as gameSpeed from "./game-speed/game-speed-ui.js";
 
 export function init() {
   const app = document.getElementById("app");
@@ -27,6 +27,13 @@ export function init() {
   // Render speed buttons
   document.getElementById("speed-controls").innerHTML =
     gameSpeed.createButtons();
+
+  // Render poll speed buttons
+  document.getElementById("poll-speed-controls").innerHTML =
+    gameSpeed.createPollSpeedButtons();
+
+  // Start worker assignments independent polling
+  workerAssignments.startPolling();
 }
 
 export function updateGameSpeed(speed) {
@@ -34,6 +41,8 @@ export function updateGameSpeed(speed) {
 }
 
 export function updateWorkerAssignments(assignments) {
+  // This is no longer used since worker-assignments polls independently
+  // Keeping for backwards compatibility
   workerAssignments.update(assignments);
 }
 
@@ -60,9 +69,8 @@ export function update(data) {
     updateGameSpeed(data.game_speed);
   }
 
-  if (data.worker_assignments) {
-    updateWorkerAssignments(data.worker_assignments);
-  }
+  // Worker assignments now polls independently via /worker-status
+  // No longer updating from /status endpoint
 
   if (data.larva_responsibilities) {
     updateLarvaeAssignments(data.larva_responsibilities);

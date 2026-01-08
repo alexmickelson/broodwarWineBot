@@ -29,7 +29,11 @@ impl WorkerAssignment {
     }
   }
 
-  pub fn building(target_unit: Option<usize>, target_position: (i32, i32), build_order_index: usize) -> Self {
+  pub fn building(
+    target_unit: Option<usize>,
+    target_position: (i32, i32),
+    build_order_index: usize,
+  ) -> Self {
     Self {
       assignment_type: WorkerAssignmentType::Building,
       target_unit,
@@ -59,7 +63,12 @@ pub struct UnitOrder {
   pub target_position: Option<(i32, i32)>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
+pub struct WorkerStatusSnapshot {
+  pub worker_assignments: HashMap<usize, WorkerAssignment>,
+  pub frame_count: i32,
+}
+
 pub struct GameState {
   pub map_data: MapData,
   pub worker_assignments: HashMap<usize, WorkerAssignment>,
@@ -117,9 +126,11 @@ pub fn update_unit_orders(game: &rsbwapi::Game, game_state: &SharedGameState) {
     let unit_id = unit.get_id();
     let current_pos = unit.get_position();
     let order = unit.get_order();
-    
+
     let target_id = unit.get_order_target().map(|t| t.get_id());
-    let target_type = unit.get_order_target().map(|t| format!("{:?}", t.get_type()));
+    let target_type = unit
+      .get_order_target()
+      .map(|t| format!("{:?}", t.get_type()));
     let target_position = unit.get_target_position().map(|p| (p.x, p.y));
 
     unit_orders.insert(
