@@ -73,6 +73,7 @@ CONSOLE_ALLOC_AUTO=$(read_yaml_value "console_alloc_auto" "TRUE")
 WAIT_MIN_PLAYERS=$(read_yaml_value "wait_for_min_players" "2")
 WAIT_MAX_PLAYERS=$(read_yaml_value "wait_for_max_players" "8")
 WAIT_TIME=$(read_yaml_value "wait_for_time" "60000")
+DOUBLE_SIZE=$(read_yaml_value "double_size" "ON")
 
 # Read computer races array
 COMPUTER_RACES=()
@@ -304,10 +305,14 @@ EOF
 
 
 
-# Configure W-MODE to enable 2x view by default
+# Configure W-MODE to enable/disable 2x view based on preferences
 WMODE_INI="${PROJECT_DIR}/starcraft/wmode.ini"
 if [ -f "$WMODE_INI" ]; then
-    sed -i 's/^DblSizeMode=.*/DblSizeMode=1/' "$WMODE_INI"
+    if [ "$DOUBLE_SIZE" = "ON" ]; then
+        sed -i 's/^DblSizeMode=.*/DblSizeMode=1/' "$WMODE_INI"
+    else
+        sed -i 's/^DblSizeMode=.*/DblSizeMode=0/' "$WMODE_INI"
+    fi
     echo "Configured W-MODE for 2x view"
 else
     echo "Creating wmode.ini with 2x view enabled"

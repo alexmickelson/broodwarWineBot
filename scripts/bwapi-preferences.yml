@@ -1,5 +1,5 @@
-auto_menu: SINGLE_PLAYER
-# auto_menu: OFF
+# auto_menu: SINGLE_PLAYER
+auto_menu: OFF
 # auto_menu: LAN
 # auto_menu: BATTLE_NET
 
@@ -40,7 +40,8 @@ window_top: 704
 window_width: 640
 window_height: 480
 
-sound: ON
+# sound: ON
+sound: OFF
 
 screenshots: gif
 
@@ -72,3 +73,6 @@ holiday: ON
 
 # Random seed override (decimal integer, commented = use system time)
 # seed_override: 123456789
+
+double_size: ON
+# double_size: OFF
