@@ -40,8 +40,13 @@ impl Default for MapData {
 }
 
 pub fn collect_map_data(game: &rsbwapi::Game) -> MapData {
-  let width = game.map_width() as usize;
-  let height = game.map_height() as usize;
+  // Map dimensions in build tiles (32 pixels per tile)
+  let width_tiles = game.map_width() as usize;
+  let height_tiles = game.map_height() as usize;
+  
+  // For visualization, we'll use walk tile resolution (4 walk tiles per build tile)
+  let width = width_tiles * 4;
+  let height = height_tiles * 4;
 
   let mut walkability = vec![vec![false; width]; height];
   let mut explored = vec![vec![false; width]; height];
@@ -53,8 +58,8 @@ pub fn collect_map_data(game: &rsbwapi::Game) -> MapData {
         y: y as i32,
       };
       let tile_pos = rsbwapi::TilePosition {
-        x: x as i32 / 4,
-        y: y as i32 / 4,
+        x: (x / 4) as i32,
+        y: (y / 4) as i32,
       };
       walkability[y][x] = game.is_walkable(walk_pos);
       explored[y][x] = game.is_explored(tile_pos);
@@ -157,16 +162,20 @@ pub fn generate_map_svg(map_data: &MapData) -> String {
 
   // Draw resources
   for resource in &map_data.resources {
-    let color = match resource.resource_type.as_str() {
-      "minerals" => "#00FFFF", // Cyan for minerals
-      "gas" => "#00FF00",      // Green for gas
-      _ => "#FFFF00",          // Yellow for other
+    let color = if resource.resource_type.contains("Mineral") {
+      "#00FFFF" // Cyan for minerals
+    } else if resource.resource_type.contains("Geyser") {
+      "#00FF00" // Green for gas
+    } else {
+      "#FFFF00" // Yellow for other
     };
 
+    // Resources are in walk tile coordinates, scale directly
+    let scale_i32 = scale as i32;
     svg.push_str(&format!(
       r#"<circle cx="{}" cy="{}" r="{}" fill="{}" opacity="0.8"/>"#,
-      resource.x / 8 * (scale as i32) + (scale / 2) as i32,
-      resource.y / 8 * (scale as i32) + (scale / 2) as i32,
+      resource.x * scale_i32 + scale_i32 / 2,
+      resource.y * scale_i32 + scale_i32 / 2,
       scale * 2,
       color
     ));
@@ -180,10 +189,12 @@ pub fn generate_map_svg(map_data: &MapData) -> String {
       "#FF0000" // Red for enemies
     };
 
+    // Units are in walk tile coordinates, scale directly
+    let scale_i32 = scale as i32;
     svg.push_str(&format!(
       "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\" stroke=\"#FFFFFF\" stroke-width=\"0.5\"/>",
-      unit.x / 8 * (scale as i32),
-      unit.y / 8 * (scale as i32),
+      unit.x * scale_i32 + scale_i32 / 2,
+      unit.y * scale_i32 + scale_i32 / 2,
       scale,
       color
     ));

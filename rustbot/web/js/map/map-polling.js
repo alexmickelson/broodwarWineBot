@@ -15,7 +15,7 @@ export function startPolling() {
 
   poller = pollingControls.registerPoller("map", async () => {
     const data = await service.fetchMap();
-    update(data.map_svg);
+    update(data.map_data);
   });
 
   poller.start();

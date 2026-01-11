@@ -1,4 +1,3 @@
-use crate::map::generate_map_svg;
 use crate::utils::game_state::{SharedGameState, UnitOrder, WorkerAssignment};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{
@@ -251,7 +250,7 @@ async fn build_order_handler(
 
 #[derive(Clone, Debug, Serialize)]
 pub struct MapSnapshot {
-  pub map_svg: String,
+  pub map_data: crate::map::MapData,
   pub frame_count: i32,
 }
 
@@ -263,9 +262,8 @@ async fn map_handler(
   let callback = Box::new(
     move |game: &rsbwapi::Game, _state: &crate::utils::game_state::GameState| {
       let map_data = crate::map::collect_map_data(game);
-      let map_svg = generate_map_svg(&map_data);
       let snapshot = MapSnapshot {
-        map_svg,
+        map_data,
         frame_count: game.get_frame_count(),
       };
       let _ = tx.send(snapshot);
@@ -276,7 +274,7 @@ async fn map_handler(
     callbacks_lock.add_callback(callback);
   } else {
     return Json(MapSnapshot {
-      map_svg: String::new(),
+      map_data: crate::map::MapData::default(),
       frame_count: -1,
     });
   }
@@ -284,7 +282,7 @@ async fn map_handler(
   match rx.await {
     Ok(snapshot) => Json(snapshot),
     Err(_) => Json(MapSnapshot {
-      map_svg: String::new(),
+      map_data: crate::map::MapData::default(),
       frame_count: -1,
     }),
   }
