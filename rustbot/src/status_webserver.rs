@@ -1,5 +1,4 @@
 use crate::map::generate_map_svg;
-pub use crate::map::{MapData, ResourceInfo, UnitInfo};
 use crate::utils::game_state::{SharedGameState, UnitOrder, WorkerAssignment};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{

@@ -16,6 +16,7 @@ pub fn build_order_onframe(game: &Game, game_state: &SharedGameState) {
   };
 
   advance_build_order_for_morphed_larvae(game, &mut game_state, &player);
+  advance_build_order_if_building_building(game, &mut game_state, &player);
 
   if game_state.build_order_index >= game_state.build_order.len() {
     println!("build order empty");
@@ -44,6 +45,14 @@ pub fn build_order_onframe(game: &Game, game_state: &SharedGameState) {
     ),
   );
 
+  if is_building_current_building(&game_state, unit_type) {
+    game.draw_text_screen(
+      (0, 20),
+      &format!("Worker already assigned to build {:?}", unit_type),
+    );
+    return;
+  }
+
   if player.minerals() < needed_minerals {
     return;
   }
@@ -56,6 +65,24 @@ pub fn build_order_onframe(game: &Game, game_state: &SharedGameState) {
       build_unit_from_larva(game, &mut game_state, &larva_units, unit_type);
     }
   }
+}
+
+fn is_building_current_building(game_state: &GameState, building_type: UnitType) -> bool {
+  game_state.worker_assignments.iter().any(|(_, assignment)| {
+    if assignment.assignment_type != WorkerAssignmentType::Building {
+      return false;
+    }
+
+    let Some(build_order_idx) = assignment.build_order_index else {
+      return false;
+    };
+
+    let Some(&assigned_building_type) = game_state.build_order.get(build_order_idx) else {
+      return false;
+    };
+
+    assigned_building_type == building_type
+  })
 }
 
 fn build_unit_from_larva(
@@ -103,10 +130,7 @@ fn build_building(game: &Game, game_state: &mut GameState, unit_type: UnitType) 
   if already_assigned {
     game.draw_text_screen(
       (0, 10),
-      &format!(
-        "Worker assigned to build {:?}",
-        unit_type
-      ),
+      &format!("Worker assigned to build {:?}", unit_type),
     );
     return;
   }
@@ -238,12 +262,74 @@ fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
   }
 }
 
+fn advance_build_order_if_building_building(
+  game: &Game,
+  game_state: &mut GameState,
+  player: &Player,
+) {
+  if game_state.build_order_index >= game_state.build_order.len() {
+    return;
+  }
+
+  let current_building_type = game_state.build_order[game_state.build_order_index];
+  if !current_building_type.is_building() {
+    return;
+  }
+
+  let morphing_building_ids: Vec<usize> = game
+    .get_all_units()
+    .into_iter()
+    .filter(|u| {
+      u.get_type() == current_building_type
+        && u.get_player().get_id() == player.get_id()
+        && !u.is_completed()
+    })
+    .map(|u| u.get_id() as usize)
+    .collect();
+
+  if morphing_building_ids.is_empty() {
+    return;
+  }
+
+  game.draw_text_screen(
+    (0, 40),
+    &format!(
+      "Buildings morphing into {:?}: {:?}",
+      current_building_type, morphing_building_ids
+    ),
+  );
+
+  let has_assignment_for_current_index = game_state
+    .worker_assignments
+    .values()
+    .any(|assignment| assignment.build_order_index == Some(game_state.build_order_index));
+
+  if has_assignment_for_current_index {
+    return;
+  }
+
+  if morphing_building_ids.is_empty() {
+    println!(
+      "Worker assignment for {:?} disappeared but no building exists - worker may have been killed",
+      current_building_type
+    );
+    return;
+  }
+
+  // Building exists, so the drone successfully morphed into it
+  game_state.build_order_index += 1;
+  println!(
+    "Building started morphing (worker morphed into building), advancing build order index to {}",
+    game_state.build_order_index
+  );
+}
+
+
 fn advance_build_order_for_morphed_larvae(
   game: &Game,
   game_state: &mut GameState,
   player: &Player,
 ) {
-  // Clean up responsibilities for larvae that have morphed (no longer exist as larvae)
   let current_larva_ids: std::collections::HashSet<usize> = game
     .get_all_units()
     .into_iter()
@@ -256,15 +342,13 @@ fn advance_build_order_for_morphed_larvae(
     .larva_responsibilities
     .retain(|larva_id, build_idx| {
       if !current_larva_ids.contains(larva_id) {
-        // Larva has morphed, track which index to advance
         morphed_indices.push(*build_idx);
-        false // Remove this responsibility
+        false
       } else {
-        true // Keep this responsibility
+        true
       }
     });
 
-  // Advance the build order index if the current item was morphed
   for morphed_idx in morphed_indices {
     if morphed_idx == game_state.build_order_index {
       game_state.build_order_index += 1;

@@ -503,42 +503,30 @@ pub fn draw_worker_resource_lines(
   worker_assignments: &HashMap<usize, WorkerAssignment>,
 ) {
   for (worker_id, assignment) in worker_assignments {
-    if assignment.assignment_type != WorkerAssignmentType::Gathering {
+    let Some(worker) = game.get_unit(*worker_id) else {
       continue;
-    }
+    };
 
-    if let Some(worker) = game.get_unit(*worker_id) {
-      if let Some(mineral_id) = assignment.target_unit {
-        if let Some(mineral) = game.get_unit(mineral_id) {
-          let worker_pos = worker.get_position();
-          let mineral_pos = mineral.get_position();
-          game.draw_line_map(worker_pos, mineral_pos, Color::Cyan);
+    match assignment.assignment_type {
+      WorkerAssignmentType::Gathering => {
+        if let Some(mineral_id) = assignment.target_unit {
+          if let Some(mineral) = game.get_unit(mineral_id) {
+            let worker_pos = worker.get_position();
+            let mineral_pos = mineral.get_position();
+            game.draw_line_map(worker_pos, mineral_pos, Color::Cyan);
+          }
         }
       }
+      WorkerAssignmentType::Building => {
+        if let Some((target_x, target_y)) = assignment.target_position {
+          let worker_pos = worker.get_position();
+          let target_pos = Position::new(target_x, target_y);
+          game.draw_line_map(worker_pos, target_pos, Color::Yellow);
+        }
+      }
+      _ => {}
     }
   }
-
-  // let my_units = self_player.get_units();
-  // let workers: Vec<_> = my_units
-  //   .iter()
-  //   .filter(|u| u.get_type().is_worker())
-  //   .collect();
-
-  // for worker in workers {
-  //   let worker_pos = worker.get_position();
-
-  //   if let Some(target) = worker.get_target() {
-  //     if is_resource(target.get_type()) {
-  //       game.draw_line_map(worker_pos, target.get_position(), Color::Cyan);
-  //     }
-  //   }
-
-  //   if let Some(order_target) = worker.get_order_target() {
-  //     if is_resource(order_target.get_type()) {
-  //       game.draw_line_map(worker_pos, order_target.get_position(), Color::Yellow);
-  //     }
-  //   }
-  // }
 }
 
 pub fn draw_worker_ids(game: &Game) {
@@ -557,5 +545,24 @@ pub fn draw_worker_ids(game: &Game) {
     let worker_pos = worker.get_position();
     let worker_id = worker.get_id();
     game.draw_text_map(worker_pos, &format!("{}", worker_id));
+  }
+}
+
+pub fn draw_building_ids(game: &Game) {
+  let self_player = match game.self_() {
+    Some(p) => p,
+    None => return,
+  };
+
+  let my_units = self_player.get_units();
+  let buildings: Vec<_> = my_units
+    .iter()
+    .filter(|u| u.get_type().is_building())
+    .collect();
+
+  for building in buildings {
+    let building_pos = building.get_position();
+    let building_id = building.get_id();
+    game.draw_text_map(building_pos, &format!("{}", building_id));
   }
 }
