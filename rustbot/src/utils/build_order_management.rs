@@ -1,3 +1,4 @@
+use crate::utils::build_location_utils::get_buildable_location;
 use crate::utils::game_state::{
   GameState, SharedGameState, WorkerAssignment, WorkerAssignmentType,
 };
@@ -190,46 +191,15 @@ fn build_building(game: &Game, game_state: &mut GameState, unit_type: UnitType) 
   );
 }
 
-fn get_buildable_location(
-  game: &Game,
-  builder: &Unit,
-  unit_type: UnitType,
-) -> Option<TilePosition> {
-  let builder_pos = builder.get_position();
-  let search_radius = 10; // in tiles
-
-  for dy in -search_radius..=search_radius {
-    for dx in -search_radius..=search_radius {
-      let tile_x = builder_pos.x / 32 + dx;
-      let tile_y = builder_pos.y / 32 + dy;
-      let tile_pos = TilePosition {
-        x: tile_x,
-        y: tile_y,
-      };
-
-      if game
-        .can_build_here(builder, tile_pos, unit_type, true)
-        .unwrap_or_else(|_| false)
-      {
-        return Some(tile_pos);
-      }
-    }
-  }
-
-  None
-}
-
 fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
   let Some(player) = game.self_() else {
     println!("Failed to get self player in figure_out_what_to_build");
     return;
   };
-  // BWAPI stores supply as double the actual value
   let supply_total = player.supply_total() / 2;
   let supply_used = player.supply_used() / 2;
   let supply_remaining = supply_total - supply_used;
 
-  // Check for eggs morphing into overlords, not overlords themselves
   let overlords_in_production = game
     .get_all_units()
     .into_iter()
@@ -239,7 +209,6 @@ fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
         && u.get_build_type() == UnitType::Zerg_Overlord
     })
     .count();
-  // println!("supply remaining: {}, player total supply: {}, player used supply: {}, overlords in production: {}", supply_remaining, supply_total, supply_used, overlords_in_production);
 
   if supply_remaining < 4 && overlords_in_production == 0 {
     println!(
@@ -258,7 +227,9 @@ fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
   if total_drones < 20 {
     println!("queuing drone because total drones is {}", total_drones);
     game_state.build_order.push(UnitType::Zerg_Drone);
-    return;
+  } else {
+    println!("queuing zergling");
+    game_state.build_order.push(UnitType::Zerg_Zergling);
   }
 }
 

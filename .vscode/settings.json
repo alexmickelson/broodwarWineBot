@@ -48,6 +48,8 @@
   "rust-analyzer.check.allTargets": false,
   "rust-analyzer.check.features": "all",
   "cSpell.words": [
+    "onframe",
+    "rsbwapi",
     "Zerg",
     "Zergling"
   ]

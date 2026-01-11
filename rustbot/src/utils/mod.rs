@@ -1,3 +1,4 @@
+pub mod build_location_utils;
 pub mod game_state;
 pub mod worker_management;
 pub mod build_order_management;

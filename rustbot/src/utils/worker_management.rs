@@ -186,12 +186,12 @@ fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerA
     || worker_order == Order::Harvest4
   {
     let Some(target) = worker.get_order_target() else {
-      println!("Somehow moving or waiting for minerals without a target");
+      println!("Somehow moving or waiting for minerals without a target, order is: {:?}", worker_order);
       return;
     };
 
     if target.get_id() != assigned_mineral_id {
-      println!("worker mining the wrong mineral patch, reissuing gather command");
+      // println!("worker mining the wrong mineral patch, reissuing gather command");
       let _ = worker.gather(&mineral);
     }
     return;

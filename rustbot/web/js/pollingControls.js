@@ -20,51 +20,47 @@ export function getPollInterval() {
 }
 
 export function registerPoller(name, callback) {
-  let intervalId = null;
-  let isActive = false;
-
   const poller = {
     name,
-    get isActive() {
-      return isActive;
-    },
+    intervalId: null,
+    isActive: false,
 
     start() {
-      if (isActive) return;
+      if (this.isActive) return;
 
       console.log(`Starting poller: ${name}`);
-      isActive = true;
+      this.isActive = true;
 
       // Initial call
       callback().catch((err) => {
         console.error(`Poller ${name} initial call error:`, err);
       });
 
-      // Set up interval
-      intervalId = setInterval(async () => {
+      // Set up interval - use getPollInterval() to get current value
+      this.intervalId = setInterval(async () => {
         try {
           await callback();
         } catch (err) {
           console.error(`Poller ${name} error:`, err);
         }
-      }, pollInterval);
+      }, getPollInterval());
     },
 
     stop() {
-      if (!isActive) return;
+      if (!this.isActive) return;
 
       console.log(`Stopping poller: ${name}`);
-      isActive = false;
+      this.isActive = false;
 
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
+      if (this.intervalId) {
+        clearInterval(this.intervalId);
+        this.intervalId = null;
       }
     },
 
     restart() {
-      poller.stop();
-      poller.start();
+      this.stop();
+      this.start();
     },
   };
 
