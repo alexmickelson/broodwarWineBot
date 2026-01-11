@@ -92,6 +92,25 @@ fn build_unit_from_larva(
 }
 
 fn build_building(game: &Game, game_state: &mut GameState, unit_type: UnitType) {
+  let current_build_idx = game_state.build_order_index;
+
+  // Check if there's already a worker assigned to this build order index
+  let already_assigned = game_state.worker_assignments.values().any(|assignment| {
+    assignment.assignment_type == WorkerAssignmentType::Building
+      && assignment.build_order_index == Some(current_build_idx)
+  });
+
+  if already_assigned {
+    game.draw_text_screen(
+      (0, 10),
+      &format!(
+        "Worker assigned to build {:?}",
+        unit_type
+      ),
+    );
+    return;
+  }
+
   let mineral_patch_with_most_workers = game_state
     .worker_assignments
     .iter()
@@ -135,7 +154,6 @@ fn build_building(game: &Game, game_state: &mut GameState, unit_type: UnitType) 
 
   let drone_id = drone.get_id() as usize;
   let build_position = (build_location.x * 32, build_location.y * 32);
-  let current_build_idx = game_state.build_order_index;
 
   game_state.worker_assignments.insert(
     drone_id,
