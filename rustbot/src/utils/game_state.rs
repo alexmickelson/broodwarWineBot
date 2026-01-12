@@ -3,6 +3,51 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+pub struct GameState {
+  pub worker_assignments: HashMap<usize, WorkerAssignment>,
+  pub game_speed: i32,
+  pub build_order: Vec<BuildOrderItem>,
+  pub build_order_index: usize,
+  // Maps larva unit ID to the build order index it was assigned to morph into
+  pub larva_responsibilities: HashMap<usize, usize>,
+}
+
+impl Default for GameState {
+  fn default() -> Self {
+    Self {
+      worker_assignments: HashMap::new(),
+      game_speed: -1,
+      build_order: vec![
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Overlord),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Spawning_Pool),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Hatchery),
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Extractor),
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Creep_Colony),
+        BuildOrderItem::Unit(UnitType::Zerg_Evolution_Chamber),
+        BuildOrderItem::Unit(UnitType::Zerg_Overlord),
+        BuildOrderItem::Upgrade(UpgradeType::Metabolic_Boost), // zergling speed
+      ],
+      build_order_index: 0,
+      larva_responsibilities: HashMap::new(),
+    }
+  }
+}
+
+pub type SharedGameState = Arc<Mutex<GameState>>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorkerAssignmentType {
   Gathering,
@@ -75,7 +120,9 @@ impl Serialize for BuildOrderItem {
   {
     match self {
       BuildOrderItem::Unit(unit_type) => serializer.serialize_str(&format!("{:?}", unit_type)),
-      BuildOrderItem::Upgrade(upgrade_type) => serializer.serialize_str(&format!("{:?}", upgrade_type)),
+      BuildOrderItem::Upgrade(upgrade_type) => {
+        serializer.serialize_str(&format!("{:?}", upgrade_type))
+      }
     }
   }
 }
@@ -89,48 +136,3 @@ impl<'de> Deserialize<'de> for BuildOrderItem {
     Ok(BuildOrderItem::Unit(UnitType::None))
   }
 }
-
-pub struct GameState {
-  pub worker_assignments: HashMap<usize, WorkerAssignment>,
-  pub game_speed: i32,
-  pub build_order: Vec<BuildOrderItem>,
-  pub build_order_index: usize,
-  // Maps larva unit ID to the build order index it was assigned to morph into
-  pub larva_responsibilities: HashMap<usize, usize>,
-}
-
-impl Default for GameState {
-  fn default() -> Self {
-    Self {
-      worker_assignments: HashMap::new(),
-      game_speed: -1,
-      build_order: vec![
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Overlord),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Spawning_Pool),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Hatchery),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Extractor),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Creep_Colony),
-        BuildOrderItem::Unit(UnitType::Zerg_Overlord),
-        BuildOrderItem::Unit(UnitType::Zerg_Evolution_Chamber),
-        BuildOrderItem::Upgrade(UpgradeType::Metabolic_Boost), // zergling speed
-      ],
-      build_order_index: 0,
-      larva_responsibilities: HashMap::new(),
-    }
-  }
-}
-
-pub type SharedGameState = Arc<Mutex<GameState>>;
