@@ -1,4 +1,4 @@
-use crate::utils::game_state::{SharedGameState, UnitOrder, WorkerAssignment};
+use crate::utils::game_state::{MilitaryAssignment, SharedGameState, UnitOrder, WorkerAssignment};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{
   extract::State,
@@ -20,6 +20,7 @@ pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStat
     .route("/command", post(command_handler))
     .route("/worker-status", get(worker_status_handler))
     .route("/unit-orders", get(unit_orders_handler))
+    .route("/military-assignments", get(military_assignments_handler))
     .route("/larvae", get(larvae_handler))
     .route("/build-order", get(build_order_handler))
     .route("/map", get(map_handler))
@@ -196,6 +197,77 @@ async fn larvae_handler(
     Ok(snapshot) => Json(snapshot),
     Err(_) => Json(LarvaeSnapshot {
       larva_responsibilities: HashMap::new(),
+      frame_count: -1,
+    }),
+  }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MilitaryUnitData {
+  #[serde(rename = "unitType")]
+  pub unit_type: String,
+  pub target_position: Option<(i32, i32)>,
+  pub target_unit: Option<usize>,
+  pub order: String,
+  pub order_target_position: Option<(i32, i32)>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MilitaryAssignmentsSnapshot {
+  pub military_assignments: HashMap<usize, MilitaryUnitData>,
+  pub frame_count: i32,
+}
+
+async fn military_assignments_handler(
+  State((_, callbacks)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+) -> impl IntoResponse {
+  let (tx, rx) = oneshot::channel();
+
+  let callback = Box::new(
+    move |game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
+      let military_data: HashMap<usize, MilitaryUnitData> = state
+        .military_assignments
+        .iter()
+        .filter_map(|(unit_id, assignment)| {
+          game.get_unit(*unit_id).map(|unit| {
+            let order = unit.get_order();
+            let order_target_position = unit.get_order_target_position().map(|p| (p.x, p.y));
+
+            (
+              *unit_id,
+              MilitaryUnitData {
+                unit_type: format!("{:?}", unit.get_type()),
+                target_position: assignment.target_position,
+                target_unit: assignment.target_unit,
+                order: format!("{:?}", order),
+                order_target_position,
+              },
+            )
+          })
+        })
+        .collect();
+
+      let snapshot = MilitaryAssignmentsSnapshot {
+        military_assignments: military_data,
+        frame_count: game.get_frame_count(),
+      };
+      let _ = tx.send(snapshot);
+    },
+  );
+
+  if let Ok(mut callbacks_lock) = callbacks.lock() {
+    callbacks_lock.add_callback(callback);
+  } else {
+    return Json(MilitaryAssignmentsSnapshot {
+      military_assignments: HashMap::new(),
+      frame_count: -1,
+    });
+  }
+
+  match rx.await {
+    Ok(snapshot) => Json(snapshot),
+    Err(_) => Json(MilitaryAssignmentsSnapshot {
+      military_assignments: HashMap::new(),
       frame_count: -1,
     }),
   }

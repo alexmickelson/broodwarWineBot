@@ -1,7 +1,7 @@
-use crate::utils::build_order_management;
 use crate::utils::game_state::SharedGameState;
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use crate::utils::worker_management;
+use crate::utils::{build_order_management, military_management};
 use rsbwapi::*;
 
 pub struct RustBot {
@@ -52,12 +52,15 @@ impl AiModule for RustBot {
     worker_management::update_assignments(game, &self.game_state);
     worker_management::enforce_assignments(game, &self.game_state);
 
+    military_management::military_onframe(game, &mut self.game_state);
+
     worker_management::draw_worker_resource_lines(
       game,
       &self.game_state.lock().unwrap().worker_assignments.clone(),
     );
     worker_management::draw_worker_ids(game);
     worker_management::draw_building_ids(game);
+    military_management::draw_military_assignments(game, &self.game_state.lock().unwrap());
 
     if let Ok(mut callbacks) = self.http_callbacks.lock() {
       if callbacks.has_pending() {

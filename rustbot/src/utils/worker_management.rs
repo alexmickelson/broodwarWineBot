@@ -1,5 +1,7 @@
 use crate::utils::build_location_utils::get_buildable_location;
-use crate::utils::game_state::{BuildOrderItem, SharedGameState, WorkerAssignment, WorkerAssignmentType};
+use crate::utils::game_state::{
+  BuildOrderItem, GameState, SharedGameState, WorkerAssignment, WorkerAssignmentType,
+};
 use rsbwapi::*;
 use std::collections::HashMap;
 
@@ -49,6 +51,16 @@ pub fn update_assignments(game: &Game, game_state: &SharedGameState) {
     })
     .collect();
 
+  let extractors: Vec<_> = game
+    .get_all_units()
+    .into_iter()
+    .filter(|u| {
+      u.get_type() == UnitType::Zerg_Extractor
+        && u.get_player().get_id() == game.self_().map(|p| p.get_id()).unwrap_or(0)
+        && u.is_completed()
+    })
+    .collect();
+
   let unassigned_idle_workers: Vec<_> = workers
     .iter()
     .filter(|w| w.is_idle() && !assignments.contains_key(&w.get_id()))
@@ -58,19 +70,30 @@ pub fn update_assignments(game: &Game, game_state: &SharedGameState) {
   let mut mineral_worker_count = count_workers_per_resource(&assignments);
 
   for worker in unassigned_idle_workers {
-    let best_mineral = find_least_saturated_mineral(&minerals, &mineral_worker_count, 2)
-      .or_else(|| find_least_saturated_mineral(&minerals, &mineral_worker_count, 3));
+    let undersaturated_extractor = extractors.iter().find(|extractor| {
+      let extractor_id = extractor.get_id();
+      let worker_count = assignments
+        .values()
+        .filter(|a| {
+          a.assignment_type == WorkerAssignmentType::Gathering
+            && a.target_unit == Some(extractor_id)
+        })
+        .count();
+      worker_count < 2
+    });
 
-    if let Some(mineral) = best_mineral {
-      assign_to_minerals(
-        game,
-        worker,
-        mineral,
-        &mut assignments,
-        &mut mineral_worker_count,
-      );
+    if let Some(extractor) = undersaturated_extractor {
+      let extractor_id = extractor.get_id();
+      assignments.insert(worker.get_id(), WorkerAssignment::gathering(extractor_id));
     } else {
-      assign_to_scout(game, worker, &mut assignments);
+      let best_mineral = find_least_saturated_mineral(&minerals, &mineral_worker_count, 2)
+        .or_else(|| find_least_saturated_mineral(&minerals, &mineral_worker_count, 3));
+
+      if let Some(mineral) = best_mineral {
+        let mineral_id = mineral.get_id();
+        assignments.insert(worker.get_id(), WorkerAssignment::gathering(mineral_id));
+        *mineral_worker_count.entry(mineral_id).or_insert(0) += 1;
+      }
     }
   }
 
@@ -99,51 +122,11 @@ pub fn enforce_assignments(game: &Game, game_state: &SharedGameState) {
         WorkerAssignmentType::Gathering => {
           enforce_gathering_assignment(game, worker, assignment);
         }
-        WorkerAssignmentType::Scouting => {
-          enforce_scouting_assignment(worker, assignment);
-        }
         WorkerAssignmentType::Building => {
           enforce_building_assignment(game, worker, assignment, &build_order);
         }
       }
     }
-  }
-}
-
-fn assign_to_minerals(
-  game: &Game,
-  worker: &Unit,
-  mineral: &Unit,
-  assignments: &mut HashMap<usize, WorkerAssignment>,
-  mineral_worker_count: &mut HashMap<usize, usize>,
-) {
-  let mineral_id = mineral.get_id();
-
-  if let Err(e) = worker.gather(mineral) {
-    game.draw_text_screen((10, 50), &format!("Worker gather error: {:?}", e));
-  } else {
-    assignments.insert(worker.get_id(), WorkerAssignment::gathering(mineral_id));
-    *mineral_worker_count.entry(mineral_id).or_insert(0) += 1;
-  }
-}
-
-fn assign_to_scout(game: &Game, worker: &Unit, assignments: &mut HashMap<usize, WorkerAssignment>) {
-  let map_width = game.map_width();
-  let map_height = game.map_height();
-
-  use std::time::{SystemTime, UNIX_EPOCH};
-  let seed = SystemTime::now()
-    .duration_since(UNIX_EPOCH)
-    .unwrap()
-    .as_secs() as usize;
-  let random_x = ((seed + worker.get_id()) % map_width as usize) as i32 * 32;
-  let random_y = ((seed * 7 + worker.get_id() * 11) % map_height as usize) as i32 * 32;
-  let scout_position = (random_x, random_y);
-
-  if let Err(e) = worker.move_(Position::new(random_x, random_y)) {
-    game.draw_text_screen((10, 70), &format!("Worker scout error: {:?}", e));
-  } else {
-    assignments.insert(worker.get_id(), WorkerAssignment::scouting(scout_position));
   }
 }
 
@@ -173,7 +156,10 @@ fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerA
 
   let worker_order = worker.get_order();
 
-  if worker_order == Order::ReturnMinerals || worker_order == Order::ResetCollision {
+  if worker_order == Order::ReturnMinerals
+    || worker_order == Order::ReturnGas
+    || worker_order == Order::ResetCollision
+  {
     return;
   }
 
@@ -182,9 +168,21 @@ fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerA
     return;
   };
 
+  if worker_order == Order::PlayerGuard || worker_order == Order::Stop {
+    let _ = worker.gather(&mineral);
+    return;
+  }
+
   if worker_order == Order::MoveToMinerals
     || worker_order == Order::WaitForMinerals
     || worker_order == Order::Harvest4
+    || worker_order == Order::MiningMinerals
+    || worker_order == Order::Harvest1
+    || worker_order == Order::Harvest2
+    || worker_order == Order::Harvest3
+    || worker_order == Order::MoveToGas
+    || worker_order == Order::WaitForGas
+    || worker_order == Order::HarvestGas
   {
     let Some(target) = worker.get_order_target() else {
       // println!("Somehow moving or waiting for minerals without a target, order is: {:?}", worker_order);
@@ -197,18 +195,8 @@ fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerA
     }
     return;
   }
-}
 
-fn enforce_scouting_assignment(worker: &Unit, assignment: &WorkerAssignment) {
-  if let Some((target_x, target_y)) = assignment.target_position {
-    let worker_pos = worker.get_position();
-    let distance =
-      (((worker_pos.x - target_x).pow(2) + (worker_pos.y - target_y).pow(2)) as f32).sqrt() as i32;
-
-    if distance < 100 || worker.is_idle() {
-      let _ = worker.move_(Position::new(target_x, target_y));
-    }
-  }
+  println!("worker with unknown order {:?}", worker_order);
 }
 
 fn enforce_building_assignment(

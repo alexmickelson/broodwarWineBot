@@ -65,3 +65,10 @@ export async function fetchGameSpeed() {
   }
   return response.json();
 }
+export async function fetchMilitaryAssignments() {
+  const response = await fetch(`${BASE_URL}/military-assignments`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.json();
+}

@@ -4,6 +4,7 @@ import * as ui from "./ui.js";
 import * as pollingControls from "./pollingControls.js";
 import * as workerAssignmentsPolling from "./worker-assignments/worker-assignments-polling.js";
 import * as unitOrdersPolling from "./unit-orders/unit-orders-polling.js";
+import * as militaryAssignmentsPolling from "./military-assignments/military-assignments-polling.js";
 import * as larvaePolling from "./larvae/larvae-polling.js";
 import * as buildOrderPolling from "./build-order/build-order-polling.js";
 import * as mapPolling from "./map/map-polling.js";
@@ -39,6 +40,7 @@ function init() {
 
   // Initialize all polling modules
   workerAssignmentsPolling.init();
+  militaryAssignmentsPolling.init();
   unitOrdersPolling.init();
   larvaePolling.init();
   buildOrderPolling.init();

@@ -8,8 +8,11 @@ pub struct GameState {
   pub game_speed: i32,
   pub build_order: Vec<BuildOrderItem>,
   pub build_order_index: usize,
-  // Maps larva unit ID to the build order index it was assigned to morph into
   pub larva_responsibilities: HashMap<usize, usize>,
+  pub military_assignments: HashMap<usize, MilitaryAssignment>,
+
+
+  pub offensive_target: Option<Position>,
 }
 
 impl Default for GameState {
@@ -42,6 +45,8 @@ impl Default for GameState {
       ],
       build_order_index: 0,
       larva_responsibilities: HashMap::new(),
+      offensive_target: None,
+      military_assignments: HashMap::new(),
     }
   }
 }
@@ -52,7 +57,6 @@ pub type SharedGameState = Arc<Mutex<GameState>>;
 pub enum WorkerAssignmentType {
   Gathering,
   Building,
-  Scouting,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -85,15 +89,13 @@ impl WorkerAssignment {
       build_order_index: Some(build_order_index),
     }
   }
+}
 
-  pub fn scouting(target_position: (i32, i32)) -> Self {
-    Self {
-      assignment_type: WorkerAssignmentType::Scouting,
-      target_unit: None,
-      target_position: Some(target_position),
-      build_order_index: None,
-    }
-  }
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct MilitaryAssignment {
+  pub target_position: Option<(i32, i32)>,
+  pub target_unit: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
