@@ -11,8 +11,8 @@ pub struct GameState {
   pub larva_responsibilities: HashMap<usize, usize>,
   pub military_assignments: HashMap<usize, MilitaryAssignment>,
 
-
   pub offensive_target: Option<Position>,
+  pub path_to_enemy_base: Option<Vec<(i32, i32)>>,
 }
 
 impl Default for GameState {
@@ -47,6 +47,7 @@ impl Default for GameState {
       larva_responsibilities: HashMap::new(),
       offensive_target: None,
       military_assignments: HashMap::new(),
+      path_to_enemy_base: None,
     }
   }
 }
@@ -91,11 +92,13 @@ impl WorkerAssignment {
   }
 }
 
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MilitaryAssignment {
   pub target_position: Option<(i32, i32)>,
   pub target_unit: Option<usize>,
+  pub target_path: Option<Vec<(i32, i32)>>,
+  pub target_path_goal_index: Option<usize>,
+  pub target_path_current_index: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

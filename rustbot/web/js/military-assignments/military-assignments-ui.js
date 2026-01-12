@@ -16,8 +16,9 @@ function renderMilitaryCard(item) {
 }
 
 function renderAssignmentDetails(item) {
-  let assignmentHtml = '<div class="data-section"><div class="section-title">Assignment</div>';
-  
+  let assignmentHtml =
+    '<div class="data-section"><div class="section-title">Assignment</div>';
+
   if (item.target_position) {
     const [x, y] = item.target_position;
     assignmentHtml += `
@@ -44,13 +45,62 @@ function renderAssignmentDetails(item) {
     `;
   }
 
-  assignmentHtml += '</div>';
+  // Display path information
+  if (item.target_path && Array.isArray(item.target_path)) {
+    const pathLength = item.target_path.length;
+    assignmentHtml += `
+      <div class="data-field">
+        <span class="field-name">path_length:</span>
+        <span class="field-value number">${pathLength}</span>
+      </div>
+    `;
+
+    if (
+      item.target_path_current_index !== null &&
+      item.target_path_current_index !== undefined
+    ) {
+      assignmentHtml += `
+        <div class="data-field">
+          <span class="field-name">current_index:</span>
+          <span class="field-value number">${item.target_path_current_index}</span>
+        </div>
+      `;
+    }
+
+    if (
+      item.target_path_goal_index !== null &&
+      item.target_path_goal_index !== undefined
+    ) {
+      assignmentHtml += `
+        <div class="data-field">
+          <span class="field-name">goal_index:</span>
+          <span class="field-value number">${item.target_path_goal_index}</span>
+        </div>
+      `;
+
+      // Calculate and display progress percentage
+      const currentIdx = item.target_path_current_index || 0;
+      const goalIdx = item.target_path_goal_index;
+      const progress =
+        goalIdx > 0 ? Math.round((currentIdx / goalIdx) * 100) : 0;
+
+      assignmentHtml += `
+        <div class="data-field">
+          <span class="field-name">progress:</span>
+          <span class="field-value number">${progress}%</span>
+        </div>
+      `;
+    }
+  }
+
+  assignmentHtml += "</div>";
   return assignmentHtml;
 }
 
 function renderOrderDetails(item) {
-  let orderHtml = '<div class="data-section"><div class="section-title">Current Order</div>';
-  
+  let orderHtml =
+    '<div class="data-section"><div class="section-title">Current Order</div>';
+
   if (item.order) {
     orderHtml += `
       <div class="data-field">
@@ -70,7 +120,7 @@ function renderOrderDetails(item) {
     `;
   }
 
-  orderHtml += '</div>';
+  orderHtml += "</div>";
   return orderHtml;
 }
 

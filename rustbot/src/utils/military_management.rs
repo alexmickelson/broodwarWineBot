@@ -8,10 +8,10 @@ static CACHED_REGION_IDS: OnceLock<Vec<i32>> = OnceLock::new();
 fn get_all_region_ids(game: &Game) -> &'static Vec<i32> {
   CACHED_REGION_IDS.get_or_init(|| {
     let mut region_ids = HashSet::new();
-    
+
     let map_width = game.map_width();
     let map_height = game.map_height();
-    
+
     for x in 0..map_width {
       for y in 0..map_height {
         let pos = Position::new(x * 32, y * 32);
@@ -20,7 +20,7 @@ fn get_all_region_ids(game: &Game) -> &'static Vec<i32> {
         }
       }
     }
-    
+
     region_ids.into_iter().collect()
   })
 }
@@ -59,62 +59,110 @@ pub fn military_onframe(game: &Game, game_state: &mut SharedGameState) {
 
   // println!("Military units after filter: {}", my_military_units.len());
 
-  make_military_assignments(&my_military_units, &mut game_state);
-  enforce_military_assignments(game, &my_military_units, &game_state);
+  update_military_assignments(&my_military_units, &mut game_state);
+  enforce_military_assignments(game, &my_military_units, &mut game_state);
 }
 
 fn enforce_military_assignments(
-  _game: &Game,
+  game: &Game,
   my_military_units: &[Unit],
-  game_state: &crate::utils::game_state::GameState,
+  game_state: &mut GameState,
 ) {
   for unit in my_military_units {
     let unit_id = unit.get_id() as usize;
 
-    let Some(assignment) = game_state.military_assignments.get(&unit_id) else {
+    let Some(assignment) = game_state.military_assignments.get_mut(&unit_id) else {
       continue;
     };
 
-    let Some((target_x, target_y)) = assignment.target_position else {
+    if assignment.target_position.is_some() {
+      enforce_attack_position_assignment(unit, assignment);
       continue;
-    };
+    }
 
-    let target_position = Position::new(target_x, target_y);
-    let unit_position = unit.get_position();
-    let dx = (unit_position.x - target_x) as f32;
-    let dy = (unit_position.y - target_y) as f32;
-    let distance = (dx * dx + dy * dy).sqrt();
-
-    let unit_order = unit.get_order();
-    if unit_order != Order::AttackMove && distance > 32.0 {
-      let _ = unit.attack(target_position);
+    if assignment.target_path.is_some() {
+      enforce_path_following_assignment(unit, assignment);
+      continue;
     }
   }
 }
 
-fn make_military_assignments(my_military_units: &[Unit], game_state: &mut GameState) {
-  let offensive_target = game_state.offensive_target;
+fn update_military_assignments(my_military_units: &[Unit], game_state: &mut GameState) {
+  let Some(path_to_enemy) = &game_state.path_to_enemy_base else {
+    println!("No path to enemy base available for military assignment");
+    return;
+  };
 
-  let target_position = offensive_target.map(|pos| (pos.x, pos.y));
+  let assigned_unit_ids: HashSet<usize> = game_state.military_assignments.keys().copied().collect();
 
-  let unit_ids: Vec<usize> = my_military_units
+  let unassigned_units: Vec<&Unit> = my_military_units
     .iter()
-    .map(|u| u.get_id() as usize)
+    .filter(|u| !assigned_unit_ids.contains(&(u.get_id() as usize)))
     .collect();
 
-  // println!(
-  //   "Assigning {:?} military units to target {:?}",
-  //   unit_ids, target_position
-  // );
-
-  for unit_id in unit_ids {
+  for unit in unassigned_units {
     game_state.military_assignments.insert(
-      unit_id,
+      unit.get_id() as usize,
       MilitaryAssignment {
-        target_position,
+        target_position: None,
         target_unit: None,
+        target_path: Some(path_to_enemy.clone()),
+        target_path_current_index: Some(0),
+        target_path_goal_index: Some(path_to_enemy.len() / 4),
       },
     );
+  }
+
+  for unit_id in assigned_unit_ids {
+    if game_state.military_assignments[&unit_id]
+      .target_path
+      .is_some()
+    {
+      let Some(unit) = my_military_units
+        .iter()
+        .find(|u| u.get_id() as usize == unit_id)
+      else {
+        println!(
+          "Could not find unit with id {} for military assignment update",
+          unit_id
+        );
+        continue;
+      };
+      update_path_assignment_if_close_to_goal(
+        &unit,
+        game_state.military_assignments.get_mut(&unit_id).unwrap(),
+      );
+    }
+  }
+}
+
+fn update_path_assignment_if_close_to_goal(unit: &Unit, assignment: &mut MilitaryAssignment) {
+  let Some(goal_index) = assignment.target_path_goal_index else {
+    return;
+  };
+  let Some(path) = &assignment.target_path else {
+    return;
+  };
+  let Some(current_index) = assignment.target_path_current_index else {
+    return;
+  };
+
+  if current_index >= path.len() || goal_index >= path.len() {
+    return;
+  }
+
+  let unit_position = unit.get_position();
+  let current_position = Position::new(path[current_index].0, path[current_index].1);
+
+  let dx = (unit_position.x - current_position.x) as f32;
+  let dy = (unit_position.y - current_position.y) as f32;
+  let distance = (dx * dx + dy * dy).sqrt();
+  let close_enough_threshold = 30.0;
+  let advance_increment = 20;
+
+  if distance <= close_enough_threshold && current_index < goal_index {
+    let next_index = (current_index + advance_increment).min(goal_index);
+    assignment.target_path_current_index = Some(next_index);
   }
 }
 
@@ -125,36 +173,33 @@ fn get_offensive_target(game: &Game, self_player: &Player) -> Option<Position> {
     return None;
   };
 
-  let self_start_pos = Position::new(
-    self_start.x * 32 + 16,
-    self_start.y * 32 + 16,
-  );
+  let self_start_pos = Position::new(self_start.x * 32 + 16, self_start.y * 32 + 16);
   chokepoint_to_guard_base(game, &self_start_pos)
 }
 
 fn chokepoint_to_guard_base(game: &Game, base_location: &Position) -> Option<Position> {
   let region_ids = get_all_region_ids(game);
-  
+
   let mut closest_chokepoint_region: Option<(Region, f32)> = None;
-  
+
   for &region_id in region_ids {
     let Some(region) = game.get_region(region_id as u16) else {
       continue;
     };
-    
+
     if region.get_defense_priority() != 2 {
       continue;
     }
-    
+
     // Calculate center of region
     let center_x = (region.get_bounds_left() + region.get_bounds_right()) / 2;
     let center_y = (region.get_bounds_top() + region.get_bounds_bottom()) / 2;
-    
+
     // Calculate distance to base location
     let dx = (center_x - base_location.x) as f32;
     let dy = (center_y - base_location.y) as f32;
     let distance = (dx * dx + dy * dy).sqrt();
-    
+
     match closest_chokepoint_region {
       None => closest_chokepoint_region = Some((region, distance)),
       Some((_, closest_distance)) if distance < closest_distance => {
@@ -163,7 +208,7 @@ fn chokepoint_to_guard_base(game: &Game, base_location: &Position) -> Option<Pos
       _ => {}
     }
   }
-  
+
   closest_chokepoint_region.map(|(region, _)| {
     let center_x = (region.get_bounds_left() + region.get_bounds_right()) / 2;
     let center_y = (region.get_bounds_top() + region.get_bounds_bottom()) / 2;
@@ -229,4 +274,47 @@ pub fn draw_military_assignments(game: &Game, game_state: &GameState) {
   }
 
   draw_region_boxes(game);
+}
+
+fn enforce_attack_position_assignment(unit: &Unit, assignment: &MilitaryAssignment) {
+  let Some((target_x, target_y)) = assignment.target_position else {
+    return;
+  };
+
+  let target_position = Position::new(target_x, target_y);
+  let unit_order = unit.get_order();
+  let order_target = unit.get_order_target_position();
+
+  if unit_order != Order::AttackMove || order_target != Some(target_position) {
+    let _ = unit.attack(target_position);
+  }
+}
+
+fn enforce_path_following_assignment(unit: &Unit, assignment: &mut MilitaryAssignment) {
+  let Some(target_path_current_index) = assignment.target_path_current_index else {
+    return;
+  };
+  let Some(target_path_goal_index) = assignment.target_path_goal_index else {
+    return;
+  };
+  let Some(target_path) = &assignment.target_path else {
+    return;
+  };
+
+  if target_path_current_index >= target_path.len()
+    || target_path_current_index > target_path_goal_index
+  {
+    return;
+  }
+
+  let target_position = Position::new(
+    target_path[target_path_current_index].0,
+    target_path[target_path_current_index].1,
+  );
+
+  let unit_order = unit.get_order();
+  let order_target = unit.get_order_target_position();
+  if unit_order != Order::AttackMove || order_target != Some(target_position) {
+    let _ = unit.attack(target_position);
+  }
 }
