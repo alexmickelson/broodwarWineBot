@@ -1,4 +1,4 @@
-use crate::utils::game_state::{MilitaryAssignment, SharedGameState, UnitOrder, WorkerAssignment};
+use crate::utils::game_state::{SharedGameState, UnitOrder, WorkerAssignment};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{
   extract::State,

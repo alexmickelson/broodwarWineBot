@@ -1,6 +1,6 @@
 use crate::utils::build_location_utils::get_buildable_location;
 use crate::utils::game_state::{
-  BuildOrderItem, GameState, SharedGameState, WorkerAssignment, WorkerAssignmentType,
+  BuildOrderItem, SharedGameState, WorkerAssignment, WorkerAssignmentType,
 };
 use rsbwapi::*;
 use std::collections::HashMap;
@@ -313,7 +313,6 @@ pub fn draw_worker_resource_lines(
           game.draw_line_map(worker_pos, target_pos, Color::Yellow);
         }
       }
-      _ => {}
     }
   }
 }
