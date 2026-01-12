@@ -1,4 +1,5 @@
-use crate::utils::game_state::{SharedGameState, WorkerAssignment, WorkerAssignmentType};
+use crate::utils::build_location_utils::get_buildable_location;
+use crate::utils::game_state::{BuildOrderItem, SharedGameState, WorkerAssignment, WorkerAssignmentType};
 use rsbwapi::*;
 use std::collections::HashMap;
 
@@ -186,7 +187,7 @@ fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerA
     || worker_order == Order::Harvest4
   {
     let Some(target) = worker.get_order_target() else {
-      println!("Somehow moving or waiting for minerals without a target, order is: {:?}", worker_order);
+      // println!("Somehow moving or waiting for minerals without a target, order is: {:?}", worker_order);
       return;
     };
 
@@ -214,7 +215,7 @@ fn enforce_building_assignment(
   game: &Game,
   worker: &Unit,
   assignment: &WorkerAssignment,
-  build_order: &[UnitType],
+  build_order: &[BuildOrderItem],
 ) {
   let worker_order = worker.get_order();
 
@@ -234,7 +235,7 @@ fn enforce_building_assignment(
     return;
   };
 
-  let Some(&building_type) = build_order.get(build_order_idx) else {
+  let Some(building_item) = build_order.get(build_order_idx) else {
     println!(
       "Worker {} build_order_index {} is out of bounds (build_order length: {})",
       worker.get_id(),
@@ -244,13 +245,20 @@ fn enforce_building_assignment(
     return;
   };
 
+  let BuildOrderItem::Unit(building_type) = building_item else {
+    println!(
+      "Worker {} build_order_index {} is not a unit (cannot build upgrades)",
+      worker.get_id(),
+      build_order_idx
+    );
+    return;
+  };
+
   if worker_order == Order::PlaceBuilding || worker_order == Order::ConstructingBuilding {
     return;
   }
 
-  let desired_pos = TilePosition::new(build_x / 32, build_y / 32);
-
-  let build_pos = find_valid_build_location(game, worker, building_type, desired_pos, 10);
+  let build_pos = get_buildable_location(game, worker, *building_type);
 
   let Some(pos) = build_pos else {
     println!(
@@ -263,7 +271,7 @@ fn enforce_building_assignment(
     return;
   };
 
-  let build_successful = worker.build(building_type, pos);
+  let build_successful = worker.build(*building_type, pos);
   if !build_successful.is_ok() {
     println!(
       "Worker {} failed to issue build command for {:?} at ({}, {})",
@@ -273,213 +281,6 @@ fn enforce_building_assignment(
       pos.y
     );
   }
-}
-
-fn find_valid_build_location(
-  game: &Game,
-  builder: &Unit,
-  building_type: UnitType,
-  desired_pos: TilePosition,
-  search_radius: i32,
-) -> Option<TilePosition> {
-  if game
-    .can_build_here(builder, desired_pos, building_type, true)
-    .unwrap_or(false)
-  {
-    return Some(desired_pos);
-  }
-
-  let location = (1..=search_radius)
-    .flat_map(|radius| {
-      (-radius..=radius).flat_map(move |dy| {
-        (-radius..=radius).filter_map(move |dx| {
-          Some(TilePosition {
-            x: desired_pos.x + dx,
-            y: desired_pos.y + dy,
-          })
-        })
-      })
-    })
-    .find(|&tile_pos| {
-      game
-        .can_build_here(builder, tile_pos, building_type, true)
-        .unwrap_or(false)
-        && !has_adjacent_buildings(game, tile_pos, building_type)
-        && !blocks_resource_path(game, tile_pos, building_type)
-    });
-
-  location
-}
-
-fn has_adjacent_buildings(game: &Game, pos: TilePosition, building_type: UnitType) -> bool {
-  let width = building_type.tile_width();
-  let height = building_type.tile_height();
-
-  // Check all units on the map
-  for unit in game.get_all_units() {
-    let unit_type = unit.get_type();
-
-    // Skip if not a building, or if it's a resource depot (we allow those to be adjacent)
-    if !unit_type.is_building() || unit_type.is_resource_depot() {
-      continue;
-    }
-
-    // Get the building's tile position and dimensions
-    let unit_tile_pos = unit.get_tile_position();
-    let unit_width = unit_type.tile_width() as i32;
-    let unit_height = unit_type.tile_height() as i32;
-
-    // Check if there's any overlap or adjacency between the two buildings
-    // Buildings are adjacent if they're within 1 tile of each other
-    let horizontal_gap = if pos.x + width as i32 <= unit_tile_pos.x {
-      unit_tile_pos.x - (pos.x + width as i32)
-    } else if unit_tile_pos.x + unit_width <= pos.x {
-      pos.x - (unit_tile_pos.x + unit_width)
-    } else {
-      -1 // Overlapping in X dimension
-    };
-
-    let vertical_gap = if pos.y + height as i32 <= unit_tile_pos.y {
-      unit_tile_pos.y - (pos.y + height as i32)
-    } else if unit_tile_pos.y + unit_height <= pos.y {
-      pos.y - (unit_tile_pos.y + unit_height)
-    } else {
-      -1 // Overlapping in Y dimension
-    };
-
-    // If both gaps are <= 0, the buildings are adjacent or overlapping
-    if horizontal_gap <= 0 && vertical_gap <= 0 {
-      return true;
-    }
-  }
-
-  false
-}
-
-fn blocks_resource_path(game: &Game, pos: TilePosition, building_type: UnitType) -> bool {
-  let Some(player) = game.self_() else {
-    return false;
-  };
-
-  // Find resource depots (bases)
-  let player_units = player.get_units();
-  let resource_depots: Vec<_> = player_units
-    .iter()
-    .filter(|u| u.get_type().is_resource_depot())
-    .collect();
-
-  if resource_depots.is_empty() {
-    return false;
-  }
-
-  // Get all resources near our bases
-  let all_minerals = game.get_static_minerals();
-  let all_geysers = game.get_static_geysers();
-
-  let width = building_type.tile_width() as i32;
-  let height = building_type.tile_height() as i32;
-
-  // Convert building bounds to pixel coordinates for easier collision checking
-  let build_left = pos.x * 32;
-  let build_top = pos.y * 32;
-  let build_right = build_left + width * 32;
-  let build_bottom = build_top + height * 32;
-  let build_center_x = (build_left + build_right) / 2;
-  let build_center_y = (build_top + build_bottom) / 2;
-
-  for depot in resource_depots {
-    let depot_pos = depot.get_position();
-
-    // Check minerals
-    for mineral in all_minerals.iter() {
-      let mineral_pos = mineral.get_position();
-
-      // Only check resources reasonably close to this depot
-      let depot_to_mineral_dx = (mineral_pos.x - depot_pos.x) as f32;
-      let depot_to_mineral_dy = (mineral_pos.y - depot_pos.y) as f32;
-      let depot_to_mineral_dist = (depot_to_mineral_dx * depot_to_mineral_dx
-        + depot_to_mineral_dy * depot_to_mineral_dy)
-        .sqrt();
-
-      if depot_to_mineral_dist > 10.0 * 32.0 {
-        continue; // Too far, not part of this base
-      }
-
-      // Check if building is between depot and resource
-      if is_point_between(
-        depot_pos.x,
-        depot_pos.y,
-        mineral_pos.x,
-        mineral_pos.y,
-        build_center_x,
-        build_center_y,
-        64.0,
-      ) {
-        return true;
-      }
-    }
-
-    // Check geysers
-    for geyser in all_geysers.iter() {
-      let geyser_pos = geyser.get_position();
-
-      let depot_to_geyser_dx = (geyser_pos.x - depot_pos.x) as f32;
-      let depot_to_geyser_dy = (geyser_pos.y - depot_pos.y) as f32;
-      let depot_to_geyser_dist =
-        (depot_to_geyser_dx * depot_to_geyser_dx + depot_to_geyser_dy * depot_to_geyser_dy).sqrt();
-
-      if depot_to_geyser_dist > 12.0 * 32.0 {
-        continue;
-      }
-
-      if is_point_between(
-        depot_pos.x,
-        depot_pos.y,
-        geyser_pos.x,
-        geyser_pos.y,
-        build_center_x,
-        build_center_y,
-        64.0,
-      ) {
-        return true;
-      }
-    }
-  }
-
-  false
-}
-
-fn is_point_between(x1: i32, y1: i32, x2: i32, y2: i32, px: i32, py: i32, threshold: f32) -> bool {
-  // Check if point (px, py) is roughly between points (x1, y1) and (x2, y2)
-  // using perpendicular distance from the line
-
-  let line_dx = (x2 - x1) as f32;
-  let line_dy = (y2 - y1) as f32;
-  let line_length_sq = line_dx * line_dx + line_dy * line_dy;
-
-  if line_length_sq < 1.0 {
-    return false; // Points are basically the same
-  }
-
-  // Calculate the perpendicular distance from point to line
-  let t = ((px - x1) as f32 * line_dx + (py - y1) as f32 * line_dy) / line_length_sq;
-
-  // Check if the point projects onto the line segment (not beyond the endpoints)
-  if t < 0.0 || t > 1.0 {
-    return false;
-  }
-
-  // Calculate the closest point on the line segment
-  let closest_x = x1 as f32 + t * line_dx;
-  let closest_y = y1 as f32 + t * line_dy;
-
-  // Calculate distance from point to the line
-  let dist_dx = px as f32 - closest_x;
-  let dist_dy = py as f32 - closest_y;
-  let distance = (dist_dx * dist_dx + dist_dy * dist_dy).sqrt();
-
-  // If the distance is less than threshold, it's blocking the path
-  distance < threshold
 }
 
 fn find_least_saturated_mineral<'a>(

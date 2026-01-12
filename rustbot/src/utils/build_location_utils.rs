@@ -10,6 +10,13 @@ pub fn get_buildable_location(
   let builder_pos = builder.get_position();
   let search_radius = 10; // in tiles
 
+  let is_extractor = unit_type == UnitType::Zerg_Extractor
+    || unit_type == UnitType::Terran_Refinery
+    || unit_type == UnitType::Protoss_Assimilator;
+  if is_extractor {
+    return find_extractor_location(game, builder, unit_type);
+  }
+
   let buildable_locations: Vec<TilePosition> = (-search_radius..=search_radius)
     .flat_map(|dy| {
       (-search_radius..=search_radius).filter_map(move |dx| {
@@ -21,7 +28,6 @@ pub fn get_buildable_location(
         if game
           .can_build_here(builder, tile_pos, unit_type, true)
           .unwrap_or_else(|_| false)
-          && is_not_in_resource_line(game, tile_pos, unit_type)
         {
           Some(tile_pos)
         } else {
@@ -35,11 +41,27 @@ pub fn get_buildable_location(
   buildable_locations.choose(&mut rng).copied()
 }
 
-fn is_not_in_resource_line(game: &Game, pos: TilePosition, building_type: UnitType) -> bool {
+pub fn find_extractor_location(
+  game: &Game,
+  builder: &Unit,
+  building_type: UnitType,
+) -> Option<TilePosition> {
   let Some(player) = game.self_() else {
-    return true;
+    println!("No player found for extractor location");
+    return None;
   };
 
+  let all_geysers = game.get_static_geysers();
+
+  println!(
+    "Looking for extractor location, total geysers: {}",
+    all_geysers.len()
+  );
+
+  // Find the closest geyser that:
+  // 1. Is reasonably close to our base
+  // 2. Doesn't already have an extractor on it
+  // 3. Can be built on
   let player_units = player.get_units();
   let resource_depots: Vec<_> = player_units
     .iter()
@@ -47,104 +69,43 @@ fn is_not_in_resource_line(game: &Game, pos: TilePosition, building_type: UnitTy
     .collect();
 
   if resource_depots.is_empty() {
-    return true;
+    println!("No resource depots found");
+    return None;
   }
 
-  let build_center = get_building_center(pos, building_type);
+  println!("Found {} resource depots", resource_depots.len());
 
-  let blocks_mineral_path = resource_depots.iter().any(|depot| {
-    let depot_pos = depot.get_position();
-    
-    game
-      .get_static_minerals()
-      .iter()
-      .filter(|m| is_within_range(depot_pos, m.get_position(), 10.0 * 32.0))
-      .any(|mineral| {
-        is_point_between(
-          depot_pos.x,
-          depot_pos.y,
-          mineral.get_position().x,
-          mineral.get_position().y,
-          build_center.x,
-          build_center.y,
-          64.0,
-        )
+  let nearby_geysers: Vec<_> = all_geysers
+    .iter()
+    .filter(|geyser| {
+      // Check if geyser is near any of our bases
+      resource_depots.iter().any(|depot| {
+        let depot_pos = depot.get_position();
+        let geyser_pos = geyser.get_position();
+        let dx = (depot_pos.x - geyser_pos.x) as f32;
+        let dy = (depot_pos.y - geyser_pos.y) as f32;
+        let distance = (dx * dx + dy * dy).sqrt();
+        distance <= 12.0 * 32.0
       })
-  });
+    })
+    .collect();
 
-  if blocks_mineral_path {
-    return false;
-  }
+  println!("Found {} geysers near bases", nearby_geysers.len());
 
-  let blocks_geyser_path = resource_depots.iter().any(|depot| {
-    let depot_pos = depot.get_position();
-    
-    game
-      .get_static_geysers()
-      .iter()
-      .filter(|g| is_within_range(depot_pos, g.get_position(), 12.0 * 32.0))
-      .any(|geyser| {
-        is_point_between(
-          depot_pos.x,
-          depot_pos.y,
-          geyser.get_position().x,
-          geyser.get_position().y,
-          build_center.x,
-          build_center.y,
-          64.0,
-        )
-      })
-  });
+  nearby_geysers.iter().find_map(|geyser| {
+    // Check if we can build on this geyser
+    let geyser_tile = geyser.get_tile_position();
+    let can_build = game.can_build_here(builder, geyser_tile, building_type, false);
 
-  !blocks_geyser_path
-}
+    println!(
+      "Checking geyser at ({}, {}): can_build = {:?}",
+      geyser_tile.x, geyser_tile.y, can_build
+    );
 
-fn get_building_center(pos: TilePosition, building_type: UnitType) -> Position {
-  let width = building_type.tile_width() as i32;
-  let height = building_type.tile_height() as i32;
-  let build_left = pos.x * 32;
-  let build_top = pos.y * 32;
-  let build_right = build_left + width * 32;
-  let build_bottom = build_top + height * 32;
-
-  Position {
-    x: (build_left + build_right) / 2,
-    y: (build_top + build_bottom) / 2,
-  }
-}
-
-fn is_within_range(pos1: Position, pos2: Position, max_distance: f32) -> bool {
-  let dx = (pos2.x - pos1.x) as f32;
-  let dy = (pos2.y - pos1.y) as f32;
-  let distance = (dx * dx + dy * dy).sqrt();
-  distance <= max_distance
-}
-
-fn is_point_between(x1: i32, y1: i32, x2: i32, y2: i32, px: i32, py: i32, threshold: f32) -> bool {
-  let line_dx = (x2 - x1) as f32;
-  let line_dy = (y2 - y1) as f32;
-  let line_length_sq = line_dx * line_dx + line_dy * line_dy;
-
-  if line_length_sq < 1.0 {
-    return false;
-  }
-
-  // Calculate projection parameter t
-  let t = ((px - x1) as f32 * line_dx + (py - y1) as f32 * line_dy) / line_length_sq;
-
-  // Check if point projects onto the line segment
-  if t < 0.0 || t > 1.0 {
-    return false;
-  }
-
-  // Calculate closest point on line segment
-  let closest_x = x1 as f32 + t * line_dx;
-  let closest_y = y1 as f32 + t * line_dy;
-
-  // Calculate perpendicular distance
-  let dist_dx = px as f32 - closest_x;
-  let dist_dy = py as f32 - closest_y;
-  let distance = (dist_dx * dist_dx + dist_dy * dist_dy).sqrt();
-
-  distance < threshold
+    if can_build.unwrap_or(false) {
+      Some(geyser_tile)
+    } else {
+      None
+    }
+  })
 }

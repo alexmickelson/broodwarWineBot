@@ -8,10 +8,16 @@ export function render(buildOrder, currentIndex) {
   let html = '<div class="build-order-list">';
 
   buildOrder.forEach((unit, index) => {
+    const isComplete = index < currentIndex;
+    
+    // Skip completed items
+    if (isComplete) {
+      return;
+    }
+
     const displayName = unit.replace(/^(Terran|Protoss|Zerg)_/, "");
     const isCurrent = index === currentIndex;
-    const isComplete = index < currentIndex;
-    const statusClass = isComplete ? "completed" : isCurrent ? "current" : "";
+    const statusClass = isCurrent ? "current" : "";
 
     html += `
       <div class="build-order-item ${statusClass}">

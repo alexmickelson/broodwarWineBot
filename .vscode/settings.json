@@ -49,6 +49,7 @@
   "rust-analyzer.check.features": "all",
   "cSpell.words": [
     "onframe",
+    "Protoss",
     "rsbwapi",
     "Zerg",
     "Zergling"

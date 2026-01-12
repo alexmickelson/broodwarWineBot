@@ -2,17 +2,17 @@
 .build-order-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .build-order-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 15px;
+  gap: 8px;
+  padding: 6px 10px;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-primary);
-  border-radius: 5px;
+  border-radius: 3px;
 }
 
 .build-order-item.completed {
@@ -21,8 +21,8 @@
 }
 
 .build-order-item.current {
-  border: 2px solid var(--color-text-accent);
-  box-shadow: 0 0 10px var(--shadow-accent);
+  border: 1px solid var(--color-text-accent);
+  box-shadow: 0 0 5px var(--shadow-accent);
   background: var(--color-bg-secondary);
 }
 
@@ -30,13 +30,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 30px;
-  height: 30px;
+  min-width: 24px;
+  height: 24px;
   background: var(--color-border-primary);
   color: var(--color-text-primary);
   font-weight: bold;
   border-radius: 50%;
-  font-size: 0.9em;
+  font-size: 0.75em;
 }
 
 .build-order-item.current .build-order-index {
@@ -51,5 +51,5 @@
 .build-order-unit {
   color: var(--color-text-secondary);
   font-weight: 500;
-  font-size: 1.05em;
+  font-size: 0.95em;
 }

@@ -1,6 +1,6 @@
 use crate::utils::build_location_utils::get_buildable_location;
 use crate::utils::game_state::{
-  GameState, SharedGameState, WorkerAssignment, WorkerAssignmentType,
+  BuildOrderItem, GameState, SharedGameState, WorkerAssignment, WorkerAssignmentType,
 };
 use rsbwapi::*;
 use std::collections::HashMap;
@@ -25,7 +25,11 @@ pub fn build_order_onframe(game: &Game, game_state: &SharedGameState) {
     return;
   }
 
-  let unit_type = game_state.build_order[game_state.build_order_index];
+  let BuildOrderItem::Unit(unit_type) = game_state.build_order[game_state.build_order_index] else {
+    println!("Current build order item is not a unit, skipping");
+    game_state.build_order_index += 1;
+    return;
+  };
 
   let needed_minerals = unit_type.mineral_price();
 
@@ -78,11 +82,14 @@ fn is_building_current_building(game_state: &GameState, building_type: UnitType)
       return false;
     };
 
-    let Some(&assigned_building_type) = game_state.build_order.get(build_order_idx) else {
+    let Some(assigned_building_item) = game_state.build_order.get(build_order_idx) else {
       return false;
     };
 
-    assigned_building_type == building_type
+    match assigned_building_item {
+      BuildOrderItem::Unit(assigned_building_type) => *assigned_building_type == building_type,
+      _ => false,
+    }
   })
 }
 
@@ -215,7 +222,7 @@ fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
       "queuing overlord because supply is {} and overlords in production is {}",
       supply_remaining, overlords_in_production
     );
-    game_state.build_order.push(UnitType::Zerg_Overlord);
+    game_state.build_order.push(BuildOrderItem::Unit(UnitType::Zerg_Overlord));
     return;
   }
 
@@ -226,10 +233,10 @@ fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
     .count();
   if total_drones < 20 {
     println!("queuing drone because total drones is {}", total_drones);
-    game_state.build_order.push(UnitType::Zerg_Drone);
+    game_state.build_order.push(BuildOrderItem::Unit(UnitType::Zerg_Drone));
   } else {
     println!("queuing zergling");
-    game_state.build_order.push(UnitType::Zerg_Zergling);
+    game_state.build_order.push(BuildOrderItem::Unit(UnitType::Zerg_Zergling));
   }
 }
 
@@ -242,7 +249,9 @@ fn advance_build_order_if_building_building(
     return;
   }
 
-  let current_building_type = game_state.build_order[game_state.build_order_index];
+  let BuildOrderItem::Unit(current_building_type) = game_state.build_order[game_state.build_order_index] else {
+    return;
+  };
   if !current_building_type.is_building() {
     return;
   }
