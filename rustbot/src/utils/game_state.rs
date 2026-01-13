@@ -44,6 +44,18 @@ impl Default for GameState {
         BuildOrderItem::Unit(UnitType::Zerg_Evolution_Chamber),
         BuildOrderItem::Unit(UnitType::Zerg_Overlord),
         BuildOrderItem::Upgrade(UpgradeType::Metabolic_Boost), // zergling speed
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Lair),
+        BuildOrderItem::Unit(UnitType::Zerg_Hatchery),
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Hatchery),
+        BuildOrderItem::Upgrade(UpgradeType::Zerg_Melee_Attacks),
+        BuildOrderItem::Unit(UnitType::Zerg_Lair),
       ],
       build_order_index: 0,
       larva_responsibilities: HashMap::new(),
@@ -54,7 +66,6 @@ impl Default for GameState {
         DebugFlag::ShowWorkerAssignments,
         DebugFlag::ShowMilitaryAssignments,
         DebugFlag::ShowPathToEnemyBase,
-        DebugFlag::ShowRegions,
       ].into_iter().collect(),
     }
   }

@@ -50,7 +50,7 @@ export const DebugFlags: React.FC = () => {
     const activeFlags = data.debug_flags || [];
 
     return (
-      <div className="bg-bg-secondary border border-border-primary rounded p-5">
+      <div className="">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {ALL_FLAGS.map((flag) => {
             const isActive = activeFlags.includes(flag);
@@ -59,24 +59,15 @@ export const DebugFlags: React.FC = () => {
               <div
                 key={flag}
                 onClick={() => !updateMutation.isPending && handleToggle(flag)}
-                className={`flex items-center justify-between p-3 rounded border border-border-primary hover:border-text-accent transition-colors ${
+                className={`flex items-center justify-start p-3 rounded border border-plasma-800 hover:border-plasma-500 transition-colors ${
                   updateMutation.isPending
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
                 }`}
               >
-                <span
-                  className={`text-sm ${
-                    isActive
-                      ? "text-text-accent font-medium"
-                      : "text-text-primary"
-                  }`}
-                >
-                  {FLAG_LABELS[flag]}
-                </span>
                 <div
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    isActive ? "bg-text-accent" : "bg-border-primary"
+                    isActive ? "bg-plasma-500" : "bg-plasma-800"
                   }`}
                 >
                   <span
@@ -85,6 +76,15 @@ export const DebugFlags: React.FC = () => {
                     }`}
                   />
                 </div>
+                <span
+                  className={`text-sm ps-3 ${
+                    isActive
+                      ? "text-plasma-500 font-medium"
+                      : "text-lavender-400"
+                  }`}
+                >
+                  {FLAG_LABELS[flag]}
+                </span>
               </div>
             );
           })}

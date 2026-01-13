@@ -20,13 +20,13 @@ export const ExpandableSection: React.FC<{
   }, [isExpanded, children]);
 
   return (
-    <div className="my-5 border border-gray-700 hover:border-status-success rounded-lg bg-linear-to-br from-gray-900 to-gray-950 shadow-lg hover:shadow-success transition-all duration-300">
+    <div className="my-5 border border-void-700 hover:border-emerald-500 rounded-lg bg-linear-to-br from-abyss-200 to-abyss-300 shadow-lg hover:shadow-success transition-all duration-300">
       <h2 
-        className="text-text-secondary py-3 px-4 cursor-pointer flex items-center gap-3 border-b border-gray-700 hover:bg-gray-800/50 transition-colors duration-200 rounded-t-lg group"
+        className="text-lavender-500 py-3 px-4 cursor-pointer flex items-center gap-3 border-b border-void-700 hover:bg-void-800/50 transition-colors duration-200 rounded-t-lg group"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <span 
-          className="transition-all duration-300 text-gray-400 group-hover:text-status-success font-bold text-lg"
+          className="transition-all duration-300 text-slate-400 group-hover:text-emerald-500 font-bold text-lg"
           style={{ 
             transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
             textShadow: 'none'
@@ -34,7 +34,7 @@ export const ExpandableSection: React.FC<{
         >
           ▼
         </span>
-        <span className="font-semibold text-lg text-gray-200 group-hover:text-status-success-light transition-colors duration-200">{title}</span>
+        <span className="font-semibold text-lg text-lavender-300 group-hover:text-emerald-300 transition-colors duration-200">{title}</span>
       </h2>
       <div
         ref={contentRef}

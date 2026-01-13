@@ -5,7 +5,7 @@ export const DataCard: React.FC<{
   className?: string;
 }> = ({ children, className = '' }) => {
   return (
-    <div className={`bg-bg-secondary border border-border-primary rounded p-4 ${className}`}>
+    <div className={`bg-void-950 border border-plasma-800 rounded p-4 ${className}`}>
       {children}
     </div>
   );

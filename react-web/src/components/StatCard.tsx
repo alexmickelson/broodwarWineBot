@@ -5,9 +5,9 @@ export const StatCard: React.FC<{
   value: number | string;
 }> = ({ label, value }) => {
   return (
-    <div className="bg-bg-secondary border border-border-primary rounded p-4 text-center">
-      <div className="text-2xl font-bold text-text-accent">{value}</div>
-      <div className="text-sm text-text-muted">{label}</div>
+    <div className="bg-void-950 border border-plasma-800 rounded p-4 text-center">
+      <div className="text-2xl font-bold text-plasma-500">{value}</div>
+      <div className="text-sm text-slate-400">{label}</div>
     </div>
   );
 };

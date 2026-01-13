@@ -22,7 +22,7 @@ const MilitaryCard: React.FC<{ assignment: MilitaryCardData }> = ({ assignment }
         <span className="text-text-secondary font-medium">
           {assignment.unitType || 'Military Unit'}
         </span>
-        <span className="text-text-accent font-bold">#{assignment.unitId}</span>
+        <span className="text-plasma-500 font-bold">#{assignment.unitId}</span>
       </div>
       
       <div className="mb-3">

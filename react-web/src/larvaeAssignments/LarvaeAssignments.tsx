@@ -28,7 +28,7 @@ export const LarvaeAssignments: React.FC = () => {
           <DataCard key={larvaId}>
             <div className="flex justify-between items-center mb-3 pb-2 border-b border-border-accent">
               <span className="text-text-muted text-xs uppercase tracking-wider">Larva</span>
-              <span className="text-text-accent font-bold text-lg">#{larvaId}</span>
+              <span className="text-plasma-500 font-bold text-lg">#{larvaId}</span>
             </div>
             <DataField 
               label="build_order_index" 

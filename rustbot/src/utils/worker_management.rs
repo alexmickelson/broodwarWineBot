@@ -97,6 +97,41 @@ pub fn update_assignments(game: &Game, game_state: &SharedGameState) {
     }
   }
 
+  // If there are still undersaturated extractors, reassign workers from minerals
+  for extractor in &extractors {
+    let extractor_id = extractor.get_id();
+    let worker_count = assignments
+      .values()
+      .filter(|a| {
+        a.assignment_type == WorkerAssignmentType::Gathering
+          && a.target_unit == Some(extractor_id)
+      })
+      .count();
+
+    if worker_count < 2 {
+      // Find a worker assigned to minerals
+      let worker_to_reassign = assignments.iter().find_map(|(worker_id, assignment)| {
+        if assignment.assignment_type == WorkerAssignmentType::Gathering {
+          if let Some(target_id) = assignment.target_unit {
+            // Check if the target is a mineral (not an extractor)
+            if !extractors.iter().any(|e| e.get_id() == target_id) {
+              return Some(*worker_id);
+            }
+          }
+        }
+        None
+      });
+
+      if let Some(worker_id) = worker_to_reassign {
+        assignments.insert(worker_id, WorkerAssignment::gathering(extractor_id));
+        println!(
+          "Reassigned worker {} from minerals to extractor {}",
+          worker_id, extractor_id
+        );
+      }
+    }
+  }
+
   if let Ok(mut game_state_lock) = game_state.lock() {
     game_state_lock.worker_assignments = assignments;
   }

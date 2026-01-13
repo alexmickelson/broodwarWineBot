@@ -7,8 +7,8 @@ export const StatusDot: React.FC<{
     <span
       className={`inline-block w-2.5 h-2.5 rounded-full mr-2 ${
         connected
-          ? 'bg-status-success shadow-success'
-          : 'bg-status-error'
+          ? 'bg-emerald-500 shadow-success'
+          : 'bg-crimson-500'
       }`}
     />
   );

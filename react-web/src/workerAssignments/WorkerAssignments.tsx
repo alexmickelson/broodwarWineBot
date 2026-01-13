@@ -17,7 +17,7 @@ const WorkerCard: React.FC<{ worker: WorkerCardData }> = ({ worker }) => {
     <div className="bg-bg-secondary border border-border-primary rounded p-4">
       <div className="flex justify-between items-center mb-3 pb-2 border-b border-border-accent">
         <span className="text-text-muted text-xs uppercase tracking-wider">Worker</span>
-        <span className="text-text-accent font-bold text-lg">#{worker.workerId}</span>
+        <span className="text-plasma-500 font-bold text-lg">#{worker.workerId}</span>
       </div>
       <div className="flex flex-col gap-2">
         <DataField 
@@ -57,7 +57,7 @@ const AssignmentGroup: React.FC<{
     <div className={`assignment-group-${typeClass} mb-6`}>
       <div className="flex justify-between items-center mb-3 pb-2 border-b-2 border-border-primary">
         <h3 className="text-text-secondary text-lg font-semibold">{type}</h3>
-        <span className="bg-text-accent/20 text-text-accent px-3 py-1 rounded-full text-sm font-bold">
+        <span className="bg-plasma-500/20 text-plasma-500 px-3 py-1 rounded-full text-sm font-bold">
           {workers.length}
         </span>
       </div>

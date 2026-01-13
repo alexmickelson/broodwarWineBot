@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use rsbwapi::*;
 use crate::utils::build_location_utils::get_buildable_location;
 use crate::utils::game_state::*;
+use rsbwapi::*;
+use std::collections::HashMap;
 
 pub fn build_building_onframe(
   game: &Game,
@@ -10,14 +10,16 @@ pub fn build_building_onframe(
   building_type: UnitType,
 ) {
   let needed_minerals = building_type.mineral_price();
-
+  let needed_gas = building_type.gas_price();
   game.draw_text_screen(
     (0, 0),
     &format!(
-      "next {:?}, {}/{} minerals",
+      "next {:?}, {}/{} minerals, {}/{} gas",
       building_type,
       player.minerals(),
-      needed_minerals
+      needed_minerals,
+      player.gas(),
+      needed_gas
     ),
   );
 
@@ -29,7 +31,7 @@ pub fn build_building_onframe(
     return;
   }
 
-  if player.minerals() < needed_minerals {
+  if player.minerals() < needed_minerals || player.gas() < needed_gas {
     return;
   }
 
@@ -57,23 +59,7 @@ fn is_building_current_building(game_state: &GameState, building_type: UnitType)
   })
 }
 
-fn build_building(game: &Game, game_state: &mut GameState, unit_type: UnitType) {
-  let current_build_idx = game_state.build_order_index;
-
-  // Check if there's already a worker assigned to this build order index
-  let already_assigned = game_state.worker_assignments.values().any(|assignment| {
-    assignment.assignment_type == WorkerAssignmentType::Building
-      && assignment.build_order_index == Some(current_build_idx)
-  });
-
-  if already_assigned {
-    game.draw_text_screen(
-      (0, 10),
-      &format!("Worker assigned to build {:?}", unit_type),
-    );
-    return;
-  }
-
+fn choose_drone_to_build(game: &Game, game_state: &GameState) -> Option<Unit> {
   let mineral_patch_with_most_workers = game_state
     .worker_assignments
     .iter()
@@ -92,7 +78,7 @@ fn build_building(game: &Game, game_state: &mut GameState, unit_type: UnitType) 
     .max_by_key(|&(_, count)| count)
     .map(|(mineral_id, _)| mineral_id);
 
-  let chosen_drone = game_state
+  game_state
     .worker_assignments
     .iter()
     .find_map(|(&worker_id, assignment)| {
@@ -104,8 +90,46 @@ fn build_building(game: &Game, game_state: &mut GameState, unit_type: UnitType) 
         }
       }
       None
-    });
-  let Some(drone) = chosen_drone else {
+    })
+}
+
+fn build_building(game: &Game, game_state: &mut GameState, unit_type: UnitType) {
+  let current_build_idx = game_state.build_order_index;
+
+  let (builder_type, _) = unit_type.what_builds();
+  if builder_type.is_building() {
+    let Some(building_of_type) = game.get_all_units().into_iter().find(|u| {
+      u.get_type() == builder_type
+        && u.get_player().get_id() == game.self_().map_or(0, |p| p.get_id())
+        && u.is_completed()
+    }) else {
+      game.draw_text_screen(
+        (10, 10),
+        &format!("A building of type {:?} cannot be found to build {:?}", builder_type, unit_type),
+      );
+      return;
+    };
+
+    let _ = building_of_type.train(unit_type);
+    println!("Commanded building {} to train {:?}", building_of_type.get_id(), unit_type);
+    return;
+  }
+
+  // Check if there's already a worker assigned to this build order index
+  let already_assigned = game_state.worker_assignments.values().any(|assignment| {
+    assignment.assignment_type == WorkerAssignmentType::Building
+      && assignment.build_order_index == Some(current_build_idx)
+  });
+
+  if already_assigned {
+    game.draw_text_screen(
+      (0, 10),
+      &format!("Worker assigned to build {:?}", unit_type),
+    );
+    return;
+  }
+
+  let Some(drone) = choose_drone_to_build(game, game_state) else {
     game.draw_text_screen((10, 10), "No available drone to build building");
     return;
   };

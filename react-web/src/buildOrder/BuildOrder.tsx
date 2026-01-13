@@ -45,16 +45,16 @@ export const BuildOrder: React.FC = () => {
               key={index}
               className={`flex items-center gap-3 p-3 rounded border ${
                 isCurrent
-                  ? "bg-text-accent/20 border-text-accent"
-                  : "bg-bg-secondary border-border-primary"
+                  ? "bg-plasma-500/20 border-plasma-500"
+                  : "bg-void-950 border-plasma-800"
               }`}
             >
-              <span className="text-text-muted font-bold min-w-8">
+              <span className="text-slate-400 font-bold min-w-8">
                 {index + 1}
               </span>
               <span
                 className={`font-medium ${
-                  isCurrent ? "text-text-accent" : "text-text-primary"
+                  isCurrent ? "text-plasma-500" : "text-lavender-400"
                 }`}
               >
                 {displayName}

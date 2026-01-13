@@ -11,7 +11,7 @@ const UnitOrderCard: React.FC<{ order: UnitOrder }> = ({ order }) => {
   return (
     <DataCard>
       <div className="flex justify-between items-center mb-3 pb-2 border-b border-border-accent">
-        <span className="text-text-accent font-bold bg-text-accent/15 px-2 py-1 rounded">
+        <span className="text-plasma-500 font-bold bg-plasma-500/15 px-2 py-1 rounded">
           {order.unit_type}
         </span>
         <span className="text-text-muted">#{order.unit_id}</span>
