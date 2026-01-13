@@ -1,4 +1,8 @@
-use crate::utils::game_state::{GameState, SharedGameState};
+use crate::utils::{
+  game_state::{GameState, SharedGameState},
+  map_utils::pathing,
+  military::squad_models::{MilitarySquad, SquadRole, SquadStatus},
+};
 use rsbwapi::*;
 
 pub fn military_onframe(game: &Game, game_state: &mut SharedGameState) {
@@ -12,70 +16,184 @@ pub fn military_onframe(game: &Game, game_state: &mut SharedGameState) {
     return;
   };
 
-  // if !game_state.offensive_target.is_some() {
-  //   game_state.offensive_target = get_offensive_target(game, &self_player);
-  // }
-
-  // let all_my_units: Vec<Unit> = game
-  //   .get_all_units()
-  //   .into_iter()
-  //   .filter(|u| u.get_player().get_id() == self_player.get_id())
-  //   .collect();
-
-  // let my_military_units: Vec<Unit> = all_my_units
-  //   .into_iter()
-  //   .filter(|u| {
-  //     !u.get_type().is_building()
-  //       && u.get_type() != UnitType::Zerg_Larva
-  //       && u.get_type() != UnitType::Zerg_Egg
-  //       && u.get_type() != UnitType::Zerg_Drone
-  //       && u.get_type() != UnitType::Zerg_Overlord
-  //   })
-  //   .collect();
-
-  // // println!("Military units after filter: {}", my_military_units.len());
-
-  // remove_dead_unit_assignments(game, &mut game_state);
-  // update_military_assignments(&my_military_units, &mut game_state);
-  // enforce_military_assignments(game, &my_military_units, &mut game_state);
+  update_squads(game, &mut game_state);
+  enforce_military_assignments(game, &mut game_state);
 }
 
-// fn remove_dead_unit_assignments(game: &Game, game_state: &mut GameState) {
-//   let unit_ids_to_remove: Vec<usize> = game_state
-//     .military_squads
-//     .keys()
-//     .filter(|&&unit_id| game.get_unit(unit_id).map_or(true, |unit| !unit.exists()))
-//     .copied()
-//     .collect();
+pub fn assign_unit_to_squad(game: &Game, unit: &Unit, game_state: &mut GameState) {
+  let first_squad = game_state.military_squads.first_mut();
+  if let Some(squad) = first_squad {
+    squad.assigned_unit_ids.insert(unit.get_id() as usize);
+    return;
+  }
 
-//   for unit_id in unit_ids_to_remove {
-//     game_state.military_squads.remove(&unit_id);
-//   }
-// }
+  game.draw_text_screen((0, 50), "no squads available to assign unit");
+}
 
-// fn enforce_military_assignments(
-//   game: &Game,
-//   my_military_units: &[Unit],
-//   game_state: &mut GameState,
-// ) {
-//   for unit in my_military_units {
-//     let unit_id = unit.get_id() as usize;
+pub fn is_military_unit(unit: &Unit) -> bool {
+  if unit.get_type().is_building()
+    || unit.get_type() == UnitType::Zerg_Larva
+    || unit.get_type() == UnitType::Zerg_Egg
+    || unit.get_type() == UnitType::Zerg_Drone
+    || unit.get_type() == UnitType::Zerg_Overlord
+  {
+    return false;
+  }
+  true
+}
 
-//     let Some(assignment) = game_state.military_squads.get_mut(&unit_id) else {
-//       continue;
-//     };
+pub fn remove_unit_from_squads(unit: &Unit, game_state: &mut GameState) {
+  let unit_id = unit.get_id() as usize;
+  for squad in game_state.military_squads.iter_mut() {
+    let _ = squad.assigned_unit_ids.remove(&unit_id);
+  }
+}
 
-//     if assignment.target_position.is_some() {
-//       enforce_attack_position_assignment(unit, assignment);
-//       continue;
-//     }
+pub fn create_initial_squad(game: &Game) -> Option<MilitarySquad> {
+  let Some(self_player) = game.self_() else {
+    return None;
+  };
 
-//     if assignment.target_path.is_some() {
-//       enforce_path_following_assignment(game, unit, assignment);
-//       continue;
-//     }
-//   }
-// }
+  let start_locations = game.get_start_locations();
+  let Some(my_starting_position) = start_locations.get(self_player.get_id() as usize) else {
+    return None;
+  };
+
+  let Some(enemy_location) = start_locations
+    .iter()
+    .find(|&loc| loc != my_starting_position)
+  else {
+    return None;
+  };
+
+  let my_pos = (my_starting_position.x * 32, my_starting_position.y * 32);
+  let enemy_pos = (enemy_location.x * 32, enemy_location.y * 32);
+
+  let path_to_enemy = pathing::get_path_between_points(game, my_pos, enemy_pos);
+
+  let goal = path_to_enemy.iter().len() / 8;
+
+  Some(MilitarySquad {
+    name: "Main Squad".to_string(),
+    role: SquadRole::AttackWorkers,
+    status: SquadStatus::Gathering,
+    assigned_unit_ids: std::collections::HashSet::new(),
+    target_position: None,
+    target_path: path_to_enemy,
+    target_path_index: Some(goal),
+  })
+}
+
+pub fn update_squads(game: &Game, game_state: &mut GameState) {
+  for squad in game_state.military_squads.iter_mut() {
+    if let (Some(ref path), Some(index)) = (&squad.target_path, squad.target_path_index) {
+      if index < path.len() {
+        squad.target_position = Some(path[index]);
+      }
+    }
+
+    if squad.target_position.is_none() {
+      println!(
+        "Squad {} has no target position, skipping update",
+        squad.name
+      );
+      continue;
+    }
+
+    let squad_count = squad.assigned_unit_ids.len();
+    let squad_units: Vec<Unit> = squad
+      .assigned_unit_ids
+      .iter()
+      .filter_map(|&unit_id| game.get_unit(unit_id))
+      .collect();
+    let squad_count_close_to_target =
+      get_units_close_to_position(&squad_units, squad.target_position.unwrap(), 80.0);
+
+    match squad.role {
+      SquadRole::Attack => {}
+      SquadRole::Defend => {}
+      SquadRole::AttackWorkers => {
+        if squad_count_close_to_target >= 10 {
+          squad.status = SquadStatus::Attacking;
+
+          if let Some(ref path) = squad.target_path {
+            if let Some(index) = squad.target_path_index {
+              if index > 0 && index <= path.len() {
+                squad.target_position = Some(path[index - 1]);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fn enforce_military_assignments(game: &Game, game_state: &mut GameState) {
+  for squad in game_state.military_squads.iter() {
+    for &unit_id in &squad.assigned_unit_ids {
+      let Some(unit) = game.get_unit(unit_id) else {
+        continue;
+      };
+      unit_in_squad_control(game, &unit, squad);
+    }
+  }
+}
+
+fn unit_in_squad_control(game: &Game, unit: &Unit, squad: &MilitarySquad) {
+  match squad.role {
+    SquadRole::Attack => {}
+    SquadRole::Defend => {}
+    SquadRole::AttackWorkers => match squad.status {
+      SquadStatus::Gathering => {
+        let nearby_enemies =
+          get_enemies_within(game, unit.get_position(), 80.0, unit.get_player().get_id());
+        if let Some(closest_enemy) = nearby_enemies.first() {
+          let unit_order = unit.get_order();
+          let order_target = unit.get_target();
+
+          if unit_order == Order::AttackUnit {
+            return;
+          }
+
+          if unit_order != Order::AttackUnit
+            || order_target.map(|u| u.get_id()) != Some(closest_enemy.get_id())
+          {
+            let _ = unit.attack(closest_enemy);
+          }
+          return;
+        } else {
+          let Some((target_x, target_y)) = squad.target_position else {
+            return;
+          };
+          let target_position = Position::new(target_x, target_y);
+          let unit_order = unit.get_order();
+          let order_target = unit.get_order_target_position();
+          if unit_order != Order::AttackMove || order_target != Some(target_position) {
+            let _ = unit.attack(target_position);
+          }
+        }
+      }
+      SquadStatus::Attacking => {}
+    },
+  }
+}
+
+fn get_units_close_to_position(units: &[Unit], position: (i32, i32), radius: f32) -> usize {
+  let pos = Position::new(position.0, position.1);
+  let radius_squared = radius * radius;
+
+  units
+    .iter()
+    .filter(|u| {
+      let unit_pos = u.get_position();
+      let dx = (unit_pos.x - pos.x) as f32;
+      let dy = (unit_pos.y - pos.y) as f32;
+      let distance_squared = dx * dx + dy * dy;
+      distance_squared <= radius_squared
+    })
+    .count()
+}
 
 // fn update_military_assignments(my_military_units: &[Unit], game_state: &mut GameState) {
 //   let Some(path_to_enemy) = &game_state.path_to_enemy_base else {
@@ -236,24 +354,35 @@ pub fn military_onframe(game: &Game, game_state: &mut SharedGameState) {
 //   chokepoint_to_guard_base(game, &self_start_pos)
 // }
 
-// pub fn draw_military_assignments(game: &Game, game_state: &GameState) {
-//   for (unit_id, assignment) in &game_state.military_squads {
-//     let Some(unit) = game.get_unit(*unit_id) else {
-//       continue;
-//     };
+pub fn draw_military_assignments(game: &Game, game_state: &GameState) {
+  for squad in &game_state.military_squads {
+    if let Some(target_path) = squad.target_path.as_ref() {
+      pathing::draw_path(game, target_path);
 
-//     if let Some((target_x, target_y)) = assignment.target_position {
-//       let unit_pos = unit.get_position();
-//       let target_pos = Position::new(target_x, target_y);
-//       game.draw_line_map(unit_pos, target_pos, Color::Red);
-//     }
-//   }
+      if let Some(index) = squad.target_path_index {
+        if index < target_path.len() {
+          let target_pos = Position::new(
+            target_path[index].0,
+            target_path[index].1,
+          );
+          game.draw_circle_map(target_pos, 10, Color::Red, false);
+        }
+      }
+    }
 
-//   if let Some(target) = game_state.offensive_target {
-//     game.draw_circle_map(target, 20, Color::Yellow, false);
-//     game.draw_text_map(target, "Attack Target");
-//   }
-// }
+    for &unit_id in &squad.assigned_unit_ids {
+      let Some(unit) = game.get_unit(unit_id) else {
+        continue;
+      };
+
+      if let Some((target_x, target_y)) = squad.target_position {
+        let unit_pos = unit.get_position();
+        let target_pos = Position::new(target_x, target_y);
+        game.draw_line_map(unit_pos, target_pos, Color::Red);
+      }
+    }
+  }
+}
 
 // fn enforce_attack_position_assignment(unit: &Unit, assignment: &MilitarySquad) {
 //   let Some((target_x, target_y)) = assignment.target_position else {
@@ -269,30 +398,30 @@ pub fn military_onframe(game: &Game, game_state: &mut SharedGameState) {
 //   }
 // }
 
-// fn get_enemies_within(game: &Game, position: Position, radius: f32, player_id: usize) -> Vec<Unit> {
-//   let radius_squared = radius * radius;
-//   let mut enemies: Vec<(Unit, f32)> = game
-//     .get_all_units()
-//     .into_iter()
-//     .filter_map(|u| {
-//       if u.get_player().get_id() == player_id {
-//         return None;
-//       }
-//       let enemy_pos = u.get_position();
-//       let dx = (position.x - enemy_pos.x) as f32;
-//       let dy = (position.y - enemy_pos.y) as f32;
-//       let distance_squared = dx * dx + dy * dy;
-//       if distance_squared <= radius_squared {
-//         Some((u, distance_squared))
-//       } else {
-//         None
-//       }
-//     })
-//     .collect();
+fn get_enemies_within(game: &Game, position: Position, radius: f32, player_id: usize) -> Vec<Unit> {
+  let radius_squared = radius * radius;
+  let mut enemies: Vec<(Unit, f32)> = game
+    .get_all_units()
+    .into_iter()
+    .filter_map(|u| {
+      if u.get_player().get_id() == player_id {
+        return None;
+      }
+      let enemy_pos = u.get_position();
+      let dx = (position.x - enemy_pos.x) as f32;
+      let dy = (position.y - enemy_pos.y) as f32;
+      let distance_squared = dx * dx + dy * dy;
+      if distance_squared <= radius_squared {
+        Some((u, distance_squared))
+      } else {
+        None
+      }
+    })
+    .collect();
 
-//   enemies.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-//   enemies.into_iter().map(|(u, _)| u).collect()
-// }
+  enemies.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+  enemies.into_iter().map(|(u, _)| u).collect()
+}
 
 // fn enforce_path_following_assignment(game: &Game, unit: &Unit, assignment: &mut MilitarySquad) {
 //   let Some(target_path_current_index) = assignment.target_path_current_index else {

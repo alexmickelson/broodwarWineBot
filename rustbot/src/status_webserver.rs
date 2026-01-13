@@ -248,12 +248,12 @@ pub struct MilitaryUnitInfo {
 #[derive(Clone, Debug, Serialize)]
 pub struct SquadData {
   pub name: String,
+  pub role: String,
+  pub status: String,
   pub units: Vec<MilitaryUnitInfo>,
   pub target_position: Option<(i32, i32)>,
-  pub target_unit: Option<usize>,
   pub target_path: Option<Vec<(i32, i32)>>,
-  pub target_path_current_index: Option<usize>,
-  pub target_path_goal_index: Option<usize>,
+  pub target_path_index: Option<usize>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -295,12 +295,12 @@ async fn military_assignments_handler(
 
           SquadData {
             name: squad.name.clone(),
+            role: format!("{:?}", squad.role),
+            status: format!("{:?}", squad.status),
             units,
             target_position: squad.target_position,
-            target_unit: squad.target_unit,
             target_path: squad.target_path.clone(),
-            target_path_current_index: squad.target_path_current_index,
-            target_path_goal_index: squad.target_path_goal_index,
+            target_path_index: squad.target_path_index,
           }
         })
         .collect();

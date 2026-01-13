@@ -40,18 +40,23 @@ const UnitInfo: React.FC<{ unit: MilitaryUnitInfo }> = ({ unit }) => {
 
 const SquadCard: React.FC<{ squad: SquadData }> = ({ squad }) => {
   const progress =
-    squad.target_path_goal_index && squad.target_path_current_index
-      ? Math.round(
-          (squad.target_path_current_index / squad.target_path_goal_index) * 100
-        )
+    squad.target_path && squad.target_path_index
+      ? Math.round((squad.target_path_index / squad.target_path.length) * 100)
       : 0;
 
   return (
     <DataCard>
       <div className="flex justify-between items-center mb-4 pb-3 border-b-2 border-plasma-500">
-        <span className="text-text-primary font-bold text-lg">
-          {squad.name || "Unnamed Squad"}
-        </span>
+        <div className="flex flex-col gap-1">
+          <span className="text-text-primary font-bold text-lg">
+            {squad.name || "Unnamed Squad"}
+          </span>
+          <div className="flex gap-2 text-xs">
+            <span className="text-plasma-400 font-semibold">{squad.role}</span>
+            <span className="text-text-muted">•</span>
+            <span className="text-text-secondary">{squad.status}</span>
+          </div>
+        </div>
         <span className="text-plasma-500 font-bold text-sm">
           {squad.units.length} {squad.units.length === 1 ? "unit" : "units"}
         </span>
@@ -72,14 +77,6 @@ const SquadCard: React.FC<{ squad: SquadData }> = ({ squad }) => {
             <DataField label="target_position" value="None" />
           )}
 
-          {squad.target_unit != null && (
-            <DataField
-              label="target_unit"
-              value={squad.target_unit}
-              type="number"
-            />
-          )}
-
           {squad.target_path && (
             <>
               <DataField
@@ -87,18 +84,11 @@ const SquadCard: React.FC<{ squad: SquadData }> = ({ squad }) => {
                 value={squad.target_path.length}
                 type="number"
               />
-              {squad.target_path_current_index != null && (
-                <DataField
-                  label="current_index"
-                  value={squad.target_path_current_index}
-                  type="number"
-                />
-              )}
-              {squad.target_path_goal_index != null && (
+              {squad.target_path_index != null && (
                 <>
                   <DataField
-                    label="goal_index"
-                    value={squad.target_path_goal_index}
+                    label="path_index"
+                    value={squad.target_path_index}
                     type="number"
                   />
                   <DataField

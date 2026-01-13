@@ -10,12 +10,12 @@ export interface MilitaryUnitInfo {
 
 export interface SquadData {
   name: string;
+  role: string;
+  status: string;
   units: MilitaryUnitInfo[];
   target_position: [number, number] | null;
-  target_unit: number | null;
   target_path: Array<[number, number]> | null;
-  target_path_current_index: number | null;
-  target_path_goal_index: number | null;
+  target_path_index: number | null;
 }
 
 export interface MilitaryAssignmentsSnapshot {
