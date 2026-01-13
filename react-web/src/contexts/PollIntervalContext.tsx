@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface PollIntervalContextType {
   pollInterval: number;
@@ -7,7 +7,7 @@ interface PollIntervalContextType {
 
 const PollIntervalContext = createContext<PollIntervalContextType | undefined>(undefined);
 
-export function PollIntervalProvider({ children }: { children: ReactNode }) {
+export const PollIntervalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [pollInterval, setPollInterval] = useState(1000); // Default 1 second
 
   return (
@@ -15,12 +15,12 @@ export function PollIntervalProvider({ children }: { children: ReactNode }) {
       {children}
     </PollIntervalContext.Provider>
   );
-}
+};
 
-export function usePollInterval() {
+export const usePollInterval = () => {
   const context = useContext(PollIntervalContext);
   if (context === undefined) {
     throw new Error('usePollInterval must be used within a PollIntervalProvider');
   }
   return context;
-}
+};

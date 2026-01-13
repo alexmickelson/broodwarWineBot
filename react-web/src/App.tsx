@@ -1,12 +1,13 @@
-import { GameSpeed } from './GameSpeed';
-import { WorkerAssignments } from './WorkerAssignments';
-import { MilitaryAssignments } from './MilitaryAssignments';
-import { LarvaeAssignments } from './LarvaeAssignments';
-import { UnitOrders } from './UnitOrders';
-import { BuildOrder } from './BuildOrder';
-import { MapVisualization } from './MapVisualization';
+import { GameSpeed } from './gameSpeed/GameSpeed';
+import { WorkerAssignments } from './workerAssignments/WorkerAssignments';
+import { MilitaryAssignments } from './militaryAssignments/MilitaryAssignments';
+import { LarvaeAssignments } from './larvaeAssignments/LarvaeAssignments';
+import { UnitOrders } from './unitOrders/UnitOrders';
+import { BuildOrder } from './buildOrder/BuildOrder';
+import { MapVisualization } from './mapVisualization/MapVisualization';
+import { DebugFlags } from './debugFlags/DebugFlags';
 
-function App() {
+const App = () => {
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <div className="max-w-7xl mx-auto h-screen flex flex-col">
@@ -22,11 +23,12 @@ function App() {
           <LarvaeAssignments />
           <UnitOrders />
           <BuildOrder />
+          <DebugFlags />
           <MapVisualization />
         </div>
       </div>
     </div>
   );
-}
+};
 
 export default App;

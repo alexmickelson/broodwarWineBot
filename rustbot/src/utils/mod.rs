@@ -6,3 +6,4 @@ pub mod http_status_callbacks;
 pub mod building_stuff;
 pub mod military_management;
 pub mod pathing;
+pub mod region_stuff;

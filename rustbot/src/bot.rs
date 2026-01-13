@@ -1,6 +1,6 @@
 use crate::utils::game_state::{DebugFlag, SharedGameState};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
-use crate::utils::{build_order_management, military_management};
+use crate::utils::{build_order_management, military_management, region_stuff};
 use crate::utils::{pathing, worker_management};
 use rsbwapi::*;
 
@@ -131,7 +131,7 @@ fn draw_debug_lines(game: &Game, game_state: &SharedGameState) {
         }
       }
       DebugFlag::ShowRegions => {
-        // TODO: Implement region drawing
+        region_stuff::draw_region_boxes(game);
       }
     }
   }

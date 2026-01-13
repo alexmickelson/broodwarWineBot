@@ -1,1 +1,0 @@
-export { MilitaryAssignments } from './MilitaryAssignments';

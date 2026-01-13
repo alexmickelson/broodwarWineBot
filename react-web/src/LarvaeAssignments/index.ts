@@ -1,1 +1,0 @@
-export { LarvaeAssignments } from './LarvaeAssignments';
