@@ -1,6 +1,7 @@
 use crate::utils::game_state::{DebugFlag, SharedGameState};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
-use crate::utils::{build_order_management, military_management, region_stuff};
+use crate::utils::military::military_management;
+use crate::utils::{build_order_management, region_stuff};
 use crate::utils::{pathing, worker_management};
 use rsbwapi::*;
 
@@ -41,7 +42,10 @@ impl AiModule for RustBot {
     }
   }
 
-  fn on_unit_create(&mut self, _game: &Game, _unit: Unit) {}
+  fn on_unit_create(&mut self, _game: &Game, _unit: Unit) {
+
+
+  }
 
   fn on_unit_destroy(&mut self, _game: &Game, _unit: Unit) {}
 
@@ -123,7 +127,7 @@ fn draw_debug_lines(game: &Game, game_state: &SharedGameState) {
         worker_management::draw_building_ids(game);
       }
       DebugFlag::ShowMilitaryAssignments => {
-        military_management::draw_military_assignments(game, &state);
+        // military_management::draw_military_assignments(game, &state);
       }
       DebugFlag::ShowPathToEnemyBase => {
         if let Some(path) = state.path_to_enemy_base.as_ref() {

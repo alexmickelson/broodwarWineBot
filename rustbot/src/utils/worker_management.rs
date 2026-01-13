@@ -1,7 +1,6 @@
-use crate::utils::build_location_utils::get_buildable_location;
-use crate::utils::game_state::{
+use crate::utils::{building_stuff::build_location_utils, game_state::{
   BuildOrderItem, SharedGameState, WorkerAssignment, WorkerAssignmentType,
-};
+}};
 use rsbwapi::*;
 use std::collections::HashMap;
 
@@ -281,7 +280,7 @@ fn enforce_building_assignment(
     return;
   }
 
-  let build_pos = get_buildable_location(game, worker, *building_type);
+  let build_pos = build_location_utils::get_buildable_location(game, worker, *building_type);
 
   let Some(pos) = build_pos else {
     println!(

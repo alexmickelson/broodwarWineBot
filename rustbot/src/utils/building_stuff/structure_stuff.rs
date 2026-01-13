@@ -1,5 +1,4 @@
-use crate::utils::build_location_utils::get_buildable_location;
-use crate::utils::game_state::*;
+use crate::utils::{building_stuff::build_location_utils, game_state::*};
 use rsbwapi::*;
 use std::collections::HashMap;
 
@@ -134,7 +133,7 @@ fn build_building(game: &Game, game_state: &mut GameState, unit_type: UnitType) 
     return;
   };
 
-  let Some(build_location) = get_buildable_location(game, &drone, unit_type) else {
+  let Some(build_location) = build_location_utils::get_buildable_location(game, &drone, unit_type) else {
     game.draw_text_screen((10, 10), "No valid build location found");
     return;
   };

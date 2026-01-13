@@ -1,4 +1,4 @@
-use crate::utils::game_state::{DebugFlag, SharedGameState, UnitOrder, WorkerAssignment};
+use crate::utils::game_state::{DebugFlag, SharedGameState, WorkerAssignment};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{
   extract::State,
@@ -9,8 +9,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::oneshot;
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::services::ServeDir;
-use tower_http::cors::{AllowOrigin, CorsLayer, Any};
 
 pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStatusCallbacks) {
   let web_dir = std::env::current_dir().unwrap().join("web");
@@ -19,14 +19,19 @@ pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStat
 
   // Configure CORS to allow only localhost and 127.0.0.1 origins
   let cors = CorsLayer::new()
-    .allow_origin(AllowOrigin::predicate(|origin: &axum::http::HeaderValue, _| {
-      origin.to_str()
-        .map(|s| s.starts_with("http://localhost") 
-             || s.starts_with("https://localhost")
-             || s.starts_with("http://127.0.0.1")
-             || s.starts_with("https://127.0.0.1"))
-        .unwrap_or(false)
-    }))
+    .allow_origin(AllowOrigin::predicate(
+      |origin: &axum::http::HeaderValue, _| {
+        origin
+          .to_str()
+          .map(|s| {
+            s.starts_with("http://localhost")
+              || s.starts_with("https://localhost")
+              || s.starts_with("http://127.0.0.1")
+              || s.starts_with("https://127.0.0.1")
+          })
+          .unwrap_or(false)
+      },
+    ))
     .allow_methods(Any)
     .allow_headers(Any);
 
@@ -108,6 +113,17 @@ async fn worker_status_handler(
     Ok(snapshot) => Json(snapshot),
     Err(_) => Json(error_return),
   }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnitOrder {
+  pub unit_id: usize,
+  pub unit_type: String,
+  pub order_name: String,
+  pub target_id: Option<usize>,
+  pub target_type: Option<String>,
+  pub current_position: (i32, i32),
+  pub target_position: Option<(i32, i32)>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -220,21 +236,29 @@ async fn larvae_handler(
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct MilitaryUnitData {
+pub struct MilitaryUnitInfo {
+  pub unit_id: usize,
   #[serde(rename = "unitType")]
   pub unit_type: String,
+  pub order: String,
+  pub order_target_position: Option<(i32, i32)>,
+  pub current_position: (i32, i32),
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct SquadData {
+  pub name: String,
+  pub units: Vec<MilitaryUnitInfo>,
   pub target_position: Option<(i32, i32)>,
   pub target_unit: Option<usize>,
   pub target_path: Option<Vec<(i32, i32)>>,
   pub target_path_current_index: Option<usize>,
   pub target_path_goal_index: Option<usize>,
-  pub order: String,
-  pub order_target_position: Option<(i32, i32)>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct MilitaryAssignmentsSnapshot {
-  pub military_assignments: HashMap<usize, MilitaryUnitData>,
+  pub squads: Vec<SquadData>,
   pub frame_count: i32,
 }
 
@@ -245,33 +269,44 @@ async fn military_assignments_handler(
 
   let callback = Box::new(
     move |game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
-      let military_data: HashMap<usize, MilitaryUnitData> = state
-        .military_assignments
+      let squads: Vec<SquadData> = state
+        .military_squads
         .iter()
-        .filter_map(|(unit_id, assignment)| {
-          game.get_unit(*unit_id).map(|unit| {
-            let order = unit.get_order();
-            let order_target_position = unit.get_order_target_position().map(|p| (p.x, p.y));
+        .map(|squad| {
+          let units: Vec<MilitaryUnitInfo> = squad
+            .assigned_unit_ids
+            .iter()
+            .filter_map(|unit_id| {
+              game.get_unit(*unit_id).map(|unit| {
+                let order = unit.get_order();
+                let order_target_position = unit.get_order_target_position().map(|p| (p.x, p.y));
+                let current_pos = unit.get_position();
 
-            (
-              *unit_id,
-              MilitaryUnitData {
-                unit_type: format!("{:?}", unit.get_type()),
-                target_position: assignment.target_position,
-                target_unit: assignment.target_unit,
-                target_path: assignment.target_path.clone(),
-                target_path_current_index: assignment.target_path_current_index,
-                target_path_goal_index: assignment.target_path_goal_index,
-                order: format!("{:?}", order),
-                order_target_position,
-              },
-            )
-          })
+                MilitaryUnitInfo {
+                  unit_id: *unit_id,
+                  unit_type: format!("{:?}", unit.get_type()),
+                  order: format!("{:?}", order),
+                  order_target_position,
+                  current_position: (current_pos.x, current_pos.y),
+                }
+              })
+            })
+            .collect();
+
+          SquadData {
+            name: squad.name.clone(),
+            units,
+            target_position: squad.target_position,
+            target_unit: squad.target_unit,
+            target_path: squad.target_path.clone(),
+            target_path_current_index: squad.target_path_current_index,
+            target_path_goal_index: squad.target_path_goal_index,
+          }
         })
         .collect();
 
       let snapshot = MilitaryAssignmentsSnapshot {
-        military_assignments: military_data,
+        squads,
         frame_count: game.get_frame_count(),
       };
       let _ = tx.send(snapshot);
@@ -282,7 +317,7 @@ async fn military_assignments_handler(
     callbacks_lock.add_callback(callback);
   } else {
     return Json(MilitaryAssignmentsSnapshot {
-      military_assignments: HashMap::new(),
+      squads: Vec::new(),
       frame_count: -1,
     });
   }
@@ -290,7 +325,7 @@ async fn military_assignments_handler(
   match rx.await {
     Ok(snapshot) => Json(snapshot),
     Err(_) => Json(MilitaryAssignmentsSnapshot {
-      military_assignments: HashMap::new(),
+      squads: Vec::new(),
       frame_count: -1,
     }),
   }
