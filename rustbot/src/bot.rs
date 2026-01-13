@@ -1,4 +1,4 @@
-use crate::utils::game_state::{SharedGameState};
+use crate::utils::game_state::{DebugFlag, SharedGameState};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use crate::utils::{build_order_management, military_management};
 use crate::utils::{pathing, worker_management};
@@ -30,15 +30,7 @@ impl AiModule for RustBot {
 
     military_management::military_onframe(game, &mut self.game_state);
 
-    worker_management::draw_worker_resource_lines(
-      game,
-      &self.game_state.lock().unwrap().worker_assignments.clone(),
-    );
-    worker_management::draw_worker_ids(game);
-    worker_management::draw_building_ids(game);
-    military_management::draw_military_assignments(game, &self.game_state.lock().unwrap());
-
-    pathing::draw_path(game, self.game_state.lock().unwrap().path_to_enemy_base.as_ref().unwrap());
+    draw_debug_lines(game, &self.game_state);
 
     if let Ok(mut callbacks) = self.http_callbacks.lock() {
       if callbacks.has_pending() {
@@ -115,5 +107,32 @@ fn update_path_to_enemy(game: &Game, game_state: &SharedGameState) {
     let enemy_pos = (enemy_location.x * 32, enemy_location.y * 32);
 
     game_state.path_to_enemy_base = pathing::get_path_between_points(game, my_pos, enemy_pos);
+  }
+}
+
+fn draw_debug_lines(game: &Game, game_state: &SharedGameState) {
+  let Ok(state) = game_state.lock() else {
+    return;
+  };
+
+  for flag in &state.debug_flags {
+    match flag {
+      DebugFlag::ShowWorkerAssignments => {
+        worker_management::draw_worker_resource_lines(game, &state.worker_assignments.clone());
+        worker_management::draw_worker_ids(game);
+        worker_management::draw_building_ids(game);
+      }
+      DebugFlag::ShowMilitaryAssignments => {
+        military_management::draw_military_assignments(game, &state);
+      }
+      DebugFlag::ShowPathToEnemyBase => {
+        if let Some(path) = state.path_to_enemy_base.as_ref() {
+          pathing::draw_path(game, path);
+        }
+      }
+      DebugFlag::ShowRegions => {
+        // TODO: Implement region drawing
+      }
+    }
   }
 }

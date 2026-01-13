@@ -1,6 +1,6 @@
 use rsbwapi::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 pub struct GameState {
@@ -13,6 +13,8 @@ pub struct GameState {
 
   pub offensive_target: Option<Position>,
   pub path_to_enemy_base: Option<Vec<(i32, i32)>>,
+
+  pub debug_flags: HashSet<DebugFlag>,
 }
 
 impl Default for GameState {
@@ -48,6 +50,12 @@ impl Default for GameState {
       offensive_target: None,
       military_assignments: HashMap::new(),
       path_to_enemy_base: None,
+      debug_flags: [
+        DebugFlag::ShowWorkerAssignments,
+        DebugFlag::ShowMilitaryAssignments,
+        DebugFlag::ShowPathToEnemyBase,
+        DebugFlag::ShowRegions,
+      ].into_iter().collect(),
     }
   }
 }
@@ -140,4 +148,13 @@ impl<'de> Deserialize<'de> for BuildOrderItem {
     // For now, just return a default value as we don't need to deserialize
     Ok(BuildOrderItem::Unit(UnitType::None))
   }
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum DebugFlag {
+  ShowWorkerAssignments,
+  ShowMilitaryAssignments,
+  ShowPathToEnemyBase,
+  ShowRegions,
 }

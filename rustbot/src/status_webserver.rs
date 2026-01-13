@@ -1,4 +1,4 @@
-use crate::utils::game_state::{SharedGameState, UnitOrder, WorkerAssignment};
+use crate::utils::game_state::{DebugFlag, SharedGameState, UnitOrder, WorkerAssignment};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{
   extract::State,
@@ -10,11 +10,25 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::oneshot;
 use tower_http::services::ServeDir;
+use tower_http::cors::{AllowOrigin, CorsLayer, Any};
 
 pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStatusCallbacks) {
   let web_dir = std::env::current_dir().unwrap().join("web");
 
   let combined_state = (game_state, callbacks);
+
+  // Configure CORS to allow only localhost and 127.0.0.1 origins
+  let cors = CorsLayer::new()
+    .allow_origin(AllowOrigin::predicate(|origin: &axum::http::HeaderValue, _| {
+      origin.to_str()
+        .map(|s| s.starts_with("http://localhost") 
+             || s.starts_with("https://localhost")
+             || s.starts_with("http://127.0.0.1")
+             || s.starts_with("https://127.0.0.1"))
+        .unwrap_or(false)
+    }))
+    .allow_methods(Any)
+    .allow_headers(Any);
 
   let app = Router::new()
     .route("/command", post(command_handler))
@@ -25,7 +39,10 @@ pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStat
     .route("/build-order", get(build_order_handler))
     .route("/map", get(map_handler))
     .route("/game-speed", get(game_speed_handler))
+    .route("/debug-flags", get(debug_flags_handler))
+    .route("/debug-flags", post(update_debug_flags_handler))
     .nest_service("/", ServeDir::new(web_dir))
+    .layer(cors)
     .with_state(combined_state);
 
   let listener = tokio::net::TcpListener::bind("127.0.0.1:3333")
@@ -402,5 +419,62 @@ async fn game_speed_handler(
       game_speed: 0,
       frame_count: -1,
     }),
+  }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct DebugFlagsSnapshot {
+  pub debug_flags: std::collections::HashSet<DebugFlag>,
+  pub frame_count: i32,
+}
+
+async fn debug_flags_handler(
+  State((_, callbacks)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+) -> impl IntoResponse {
+  let (tx, rx) = oneshot::channel();
+
+  let callback = Box::new(
+    move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
+      let snapshot = DebugFlagsSnapshot {
+        debug_flags: state.debug_flags.clone(),
+        frame_count: _game.get_frame_count(),
+      };
+      let _ = tx.send(snapshot);
+    },
+  );
+
+  if let Ok(mut callbacks_lock) = callbacks.lock() {
+    callbacks_lock.add_callback(callback);
+  } else {
+    return Json(DebugFlagsSnapshot {
+      debug_flags: std::collections::HashSet::new(),
+      frame_count: -1,
+    });
+  }
+
+  match rx.await {
+    Ok(snapshot) => Json(snapshot),
+    Err(_) => Json(DebugFlagsSnapshot {
+      debug_flags: std::collections::HashSet::new(),
+      frame_count: -1,
+    }),
+  }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateDebugFlagsRequest {
+  pub debug_flags: std::collections::HashSet<DebugFlag>,
+}
+
+async fn update_debug_flags_handler(
+  State((game_state, _)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+  Json(req): Json<UpdateDebugFlagsRequest>,
+) -> impl IntoResponse {
+  if let Ok(mut state) = game_state.lock() {
+    state.debug_flags = req.debug_flags;
+    println!("Debug flags updated");
+    "OK"
+  } else {
+    "Error updating debug flags"
   }
 }
