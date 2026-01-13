@@ -1,8 +1,21 @@
-pub mod game_state;
-pub mod worker_management;
 pub mod build_order_management;
+pub mod game_state;
 pub mod http_status_callbacks;
-pub mod building_stuff;
-pub mod pathing;
-pub mod region_stuff;
-pub mod military;
+pub mod worker_management;
+
+pub mod building_stuff {
+  pub mod build_location_utils;
+  pub mod creature_stuff;
+  pub mod researching_stuff;
+  pub mod structure_stuff;
+}
+
+pub mod military {
+  pub mod military_management;
+  pub mod squad_models;
+}
+
+pub mod map_utils {
+  pub mod pathing;
+  pub mod region_stuff;
+}

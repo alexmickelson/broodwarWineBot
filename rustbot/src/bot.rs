@@ -1,8 +1,9 @@
+use crate::utils::build_order_management;
 use crate::utils::game_state::{DebugFlag, SharedGameState};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
+use crate::utils::map_utils::{pathing, region_stuff};
 use crate::utils::military::military_management;
-use crate::utils::{build_order_management, region_stuff};
-use crate::utils::{pathing, worker_management};
+use crate::utils::worker_management;
 use rsbwapi::*;
 
 impl AiModule for RustBot {
@@ -42,10 +43,7 @@ impl AiModule for RustBot {
     }
   }
 
-  fn on_unit_create(&mut self, _game: &Game, _unit: Unit) {
-
-
-  }
+  fn on_unit_create(&mut self, _game: &Game, _unit: Unit) {}
 
   fn on_unit_destroy(&mut self, _game: &Game, _unit: Unit) {}
 
