@@ -34,7 +34,6 @@ impl AiModule for RustBot {
   fn on_frame(&mut self, game: &Game) {
     update_game_speed(game, &self.game_state);
 
-    build_order_management::build_order_onframe(game, &self.game_state);
     worker_management::update_assignments(game, &self.game_state);
     worker_management::enforce_assignments(game, &self.game_state);
 
@@ -51,7 +50,20 @@ impl AiModule for RustBot {
     }
   }
 
-  fn on_unit_create(&mut self, _game: &Game, _unit: Unit) {}
+
+  // creatures and new buildings -> on_unit_create
+  // evolving buildings for zerg -> on_unit_morph
+  // upgrades -> need to figure out in on_frame
+  fn on_unit_create(&mut self, game: &Game, unit: Unit) {
+    if game.get_frame_count() < 1 {
+      return;
+    }
+
+    build_order_management::build_order_on_unit_create(game, &unit, &self.game_state);
+
+
+  }
+  fn on_unit_morph(&mut self, _game: &Game, _unit: Unit) {}
 
   fn on_unit_destroy(&mut self, _game: &Game, unit: Unit) {
     if military_management::is_military_unit(&unit) {
@@ -63,6 +75,9 @@ impl AiModule for RustBot {
     if military_management::is_military_unit(&unit) {
       military_management::assign_unit_to_squad(&game, &unit, &mut self.game_state.lock().unwrap());
     }
+
+
+    
   }
 
   fn on_end(&mut self, _game: &Game, is_winner: bool) {

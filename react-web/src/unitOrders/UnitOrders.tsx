@@ -1,11 +1,10 @@
-import React from 'react';
-import { useUnitOrders } from './unitOrdersHooks';
-import { ExpandableSection } from '../components/ExpandableSection';
-import { LoadingState } from '../components/LoadingState';
-import { EmptyState } from '../components/EmptyState';
-import { DataField } from '../components/DataField';
-import { DataCard } from '../components/DataCard';
-import type { UnitOrder } from './unitOrdersService';
+import React from "react";
+import { useUnitOrders } from "./unitOrdersHooks";
+import { ExpandableSection } from "../components/ExpandableSection";
+import { LoadingState } from "../components/LoadingState";
+import { EmptyState } from "../components/EmptyState";
+import { DataCard } from "../components/DataCard";
+import type { UnitOrder } from "./unitOrdersService";
 
 const UnitOrderCard: React.FC<{ order: UnitOrder }> = ({ order }) => {
   return (
@@ -16,29 +15,40 @@ const UnitOrderCard: React.FC<{ order: UnitOrder }> = ({ order }) => {
         </span>
         <span className="text-text-muted">#{order.unit_id}</span>
       </div>
-      
-      <div className="flex flex-col gap-2">
-        <DataField label="order" value={order.order_name} type="order" />
-        <DataField 
-          label="position" 
-          value={`(${order.current_position[0]}, ${order.current_position[1]})`}
-          type="tuple"
-        />
-        
+
+      <div className="flex flex-col gap-2 text-sm">
+        <div className="text-azure-400 font-mono bg-azure-400/15 px-1.5 py-0.5 rounded inline-block">
+          {order.order_name}
+        </div>
+        <div>
+          <span className="text-text-secondary">Position: </span>
+          <span className="text-azure-400 font-medium">
+            ({order.current_position[0]}, {order.current_position[1]})
+          </span>
+        </div>
+
         {order.target_id != null && (
-          <DataField label="target_id" value={order.target_id} type="number" />
+          <div>
+            <span className="text-text-secondary">Target ID: </span>
+            <span className="text-amber-400 font-medium">
+              {order.target_id}
+            </span>
+          </div>
         )}
-        
+
         {order.target_type && (
-          <DataField label="target_type" value={order.target_type} type="target" />
+          <div className="text-amber-500 bg-amber-500/15 px-1.5 py-0.5 rounded inline-block">
+            {order.target_type}
+          </div>
         )}
-        
+
         {order.target_position && (
-          <DataField 
-            label="target_position" 
-            value={`(${order.target_position[0]}, ${order.target_position[1]})`}
-            type="tuple"
-          />
+          <div>
+            <span className="text-text-secondary">Target: </span>
+            <span className="text-azure-400 font-medium">
+              ({order.target_position[0]}, {order.target_position[1]})
+            </span>
+          </div>
         )}
       </div>
     </DataCard>

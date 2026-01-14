@@ -1,6 +1,7 @@
-use crate::utils::{building_stuff::build_location_utils, game_state::{
-  BuildOrderItem, SharedGameState, WorkerAssignment, WorkerAssignmentType,
-}};
+use crate::utils::{
+  building_stuff::build_location_utils,
+  game_state::{BuildOrderItem, SharedGameState, WorkerAssignment, WorkerAssignmentType},
+};
 use rsbwapi::*;
 use std::collections::HashMap;
 
@@ -102,8 +103,7 @@ pub fn update_assignments(game: &Game, game_state: &SharedGameState) {
     let worker_count = assignments
       .values()
       .filter(|a| {
-        a.assignment_type == WorkerAssignmentType::Gathering
-          && a.target_unit == Some(extractor_id)
+        a.assignment_type == WorkerAssignmentType::Gathering && a.target_unit == Some(extractor_id)
       })
       .count();
 
@@ -179,7 +179,10 @@ fn count_workers_per_resource(
 
 fn remove_dead_workers(assignments: &mut HashMap<usize, WorkerAssignment>, workers: &[&Unit]) {
   let worker_ids: Vec<usize> = workers.iter().map(|w| w.get_id()).collect();
-  assignments.retain(|id, _| worker_ids.contains(id));
+  // Don't remove building assignments - the drone may have morphed into a building
+  assignments.retain(|id, assignment| {
+    worker_ids.contains(id) || assignment.assignment_type == WorkerAssignmentType::Building
+  });
 }
 
 fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerAssignment) {

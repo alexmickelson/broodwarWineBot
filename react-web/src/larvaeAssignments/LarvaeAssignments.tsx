@@ -1,10 +1,9 @@
-import React from 'react';
-import { useLarvae } from './larvaeAssignmentsHooks';
-import { ExpandableSection } from '../components/ExpandableSection';
-import { LoadingState } from '../components/LoadingState';
-import { EmptyState } from '../components/EmptyState';
-import { DataField } from '../components/DataField';
-import { DataCard } from '../components/DataCard';
+import React from "react";
+import { useLarvae } from "./larvaeAssignmentsHooks";
+import { ExpandableSection } from "../components/ExpandableSection";
+import { LoadingState } from "../components/LoadingState";
+import { EmptyState } from "../components/EmptyState";
+import { DataCard } from "../components/DataCard";
 
 export const LarvaeAssignments: React.FC = () => {
   const { data: responsibilities, isLoading, error } = useLarvae();
@@ -18,25 +17,35 @@ export const LarvaeAssignments: React.FC = () => {
       return <EmptyState message={`Error: ${error.message}`} />;
     }
 
-    if (!responsibilities || Object.keys(responsibilities.larva_responsibilities).length === 0) {
+    if (
+      !responsibilities ||
+      Object.keys(responsibilities.larva_responsibilities).length === 0
+    ) {
       return <EmptyState message="No larvae assignments" />;
     }
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {Object.entries(responsibilities.larva_responsibilities).map(([larvaId, buildOrderIndex]) => (
-          <DataCard key={larvaId}>
-            <div className="flex justify-between items-center mb-3 pb-2 border-b border-border-accent">
-              <span className="text-text-muted text-xs uppercase tracking-wider">Larva</span>
-              <span className="text-plasma-500 font-bold text-lg">#{larvaId}</span>
-            </div>
-            <DataField 
-              label="build_order_index" 
-              value={buildOrderIndex as number}
-              type="number"
-            />
-          </DataCard>
-        ))}
+        {Object.entries(responsibilities.larva_responsibilities).map(
+          ([larvaId, buildOrderIndex]) => (
+            <DataCard key={larvaId}>
+              <div className="flex justify-between items-center mb-3 pb-2 border-b border-border-accent">
+                <span className="text-text-muted text-xs uppercase tracking-wider">
+                  Larva
+                </span>
+                <span className="text-plasma-500 font-bold text-lg">
+                  #{larvaId}
+                </span>
+              </div>
+              <div className="text-sm">
+                <span className="text-text-secondary">Build order step </span>
+                <span className="text-amber-400 font-medium text-lg">
+                  {buildOrderIndex as number}
+                </span>
+              </div>
+            </DataCard>
+          )
+        )}
       </div>
     );
   };

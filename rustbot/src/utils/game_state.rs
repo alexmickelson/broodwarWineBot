@@ -7,6 +7,7 @@ use crate::utils::military::squad_models::MilitarySquad;
 
 pub struct GameState {
   pub worker_assignments: HashMap<usize, WorkerAssignment>,
+  pub building_assignments: HashMap<usize, BuildingAssignment>,
   pub game_speed: i32,
   pub build_order: Vec<BuildOrderItem>,
   pub build_order_index: usize,
@@ -20,6 +21,7 @@ impl Default for GameState {
   fn default() -> Self {
     Self {
       worker_assignments: HashMap::new(),
+      building_assignments: HashMap::new(),
       game_speed: -1,
       build_order: vec![
         BuildOrderItem::Unit(UnitType::Zerg_Drone),
@@ -36,13 +38,17 @@ impl Default for GameState {
         BuildOrderItem::Unit(UnitType::Zerg_Zergling),
         BuildOrderItem::Unit(UnitType::Zerg_Zergling),
         BuildOrderItem::Unit(UnitType::Zerg_Zergling),
+        BuildOrderItem::Unit(UnitType::Zerg_Hatchery),
         BuildOrderItem::Unit(UnitType::Zerg_Extractor),
         BuildOrderItem::Unit(UnitType::Zerg_Zergling),
         BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Creep_Colony),
-        BuildOrderItem::Unit(UnitType::Zerg_Evolution_Chamber),
-        BuildOrderItem::Unit(UnitType::Zerg_Overlord),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
         BuildOrderItem::Upgrade(UpgradeType::Metabolic_Boost), // zergling speed
+        BuildOrderItem::Unit(UnitType::Zerg_Evolution_Chamber),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Drone),
+        BuildOrderItem::Unit(UnitType::Zerg_Overlord),
+        BuildOrderItem::Unit(UnitType::Zerg_Creep_Colony),
         BuildOrderItem::Unit(UnitType::Zerg_Zergling),
         BuildOrderItem::Unit(UnitType::Zerg_Zergling),
         BuildOrderItem::Unit(UnitType::Zerg_Zergling),
@@ -111,6 +117,20 @@ impl WorkerAssignment {
   }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BuildingAssignment {
+  pub unit_to_train: UnitType,
+  pub build_order_index: usize,
+}
+
+impl BuildingAssignment {
+  pub fn new(unit_to_train: UnitType, build_order_index: usize) -> Self {
+    Self {
+      unit_to_train,
+      build_order_index,
+    }
+  }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuildOrderItem {

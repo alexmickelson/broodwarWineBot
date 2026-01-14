@@ -10,12 +10,6 @@ pub fn military_onframe(game: &Game, game_state: &mut SharedGameState) {
     println!("Failed to lock game_state in military_onframe");
     return;
   };
-
-  let Some(self_player) = game.self_() else {
-    println!("Could not get self player");
-    return;
-  };
-
   update_squads(game, &mut game_state);
   enforce_military_assignments(game, &mut game_state);
 }
@@ -71,7 +65,12 @@ pub fn create_initial_squad(game: &Game) -> Option<MilitarySquad> {
 
   let path_to_enemy = pathing::get_path_between_points(game, my_pos, enemy_pos);
 
-  let goal = path_to_enemy.iter().len() / 8;
+  let goal = if let Some(ref path) = path_to_enemy {
+    path.len() / 5
+  } else {
+    println!("No path to enemy found when creating initial squad");
+    0
+  };
 
   Some(MilitarySquad {
     name: "Main Squad".to_string(),
@@ -113,19 +112,211 @@ pub fn update_squads(game: &Game, game_state: &mut GameState) {
       SquadRole::Attack => {}
       SquadRole::Defend => {}
       SquadRole::AttackWorkers => {
-        if squad_count_close_to_target >= 10 {
-          squad.status = SquadStatus::Attacking;
-
-          if let Some(ref path) = squad.target_path {
-            if let Some(index) = squad.target_path_index {
-              if index > 0 && index <= path.len() {
-                squad.target_position = Some(path[index - 1]);
-              }
-            }
-          }
+        if squad_count_close_to_target < 6 {
+          // println!(
+          //   "Squad {} not ready to attack: {} units close to target (need 6)",
+          //   squad.name, squad_count_close_to_target
+          // );
+          continue;
         }
+
+        let Some(ref path) = squad.target_path else {
+          println!(
+            "Squad {} cannot switch to attacking: no target path",
+            squad.name
+          );
+          continue;
+        };
+
+        if path.is_empty() {
+          println!(
+            "Squad {} cannot switch to attacking: path is empty",
+            squad.name
+          );
+          continue;
+        }
+
+        squad.status = SquadStatus::Attacking;
+        squad.target_path_index = Some(path.len() - 1);
+        squad.target_position = Some(path[path.len() - 1]);
       }
     }
+  }
+}
+
+fn calculate_threat_avoidance_move(
+  unit_pos: Position,
+  threats: &[Unit],
+  target_x: Option<i32>,
+  target_y: Option<i32>,
+  backward_weight: f32,
+  lateral_weight: f32,
+  target_weight: f32,
+) -> Option<Position> {
+  // Determine movement direction if we have a target
+  let (move_dir_x, move_dir_y) = if let (Some(tx), Some(ty)) = (target_x, target_y) {
+    let dx = tx as f32 - unit_pos.x as f32;
+    let dy = ty as f32 - unit_pos.y as f32;
+    let length = (dx * dx + dy * dy).sqrt();
+    if length > 0.0 {
+      (dx / length, dy / length)
+    } else {
+      (0.0, 0.0)
+    }
+  } else {
+    (0.0, 0.0)
+  };
+
+  // Filter threats to only those in our path or very close
+  let relevant_threats: Vec<&Unit> = threats
+    .iter()
+    .filter(|threat| {
+      let threat_pos = threat.get_position();
+      let dx = threat_pos.x as f32 - unit_pos.x as f32;
+      let dy = threat_pos.y as f32 - unit_pos.y as f32;
+      let distance = (dx * dx + dy * dy).sqrt();
+
+      // If no target, consider all threats
+      if move_dir_x == 0.0 && move_dir_y == 0.0 {
+        return true;
+      }
+
+      // Normalize threat direction
+      let threat_dir_x = dx / distance;
+      let threat_dir_y = dy / distance;
+
+      // Dot product to check if threat is in front of us
+      let dot = threat_dir_x * move_dir_x + threat_dir_y * move_dir_y;
+
+      // Only consider threats somewhat in our path (within 120 degrees in front) or very close
+      dot > -0.5 || distance < 50.0
+    })
+    .collect();
+
+  if relevant_threats.is_empty() {
+    return None;
+  }
+
+  let mut avg_threat_x = 0.0;
+  let mut avg_threat_y = 0.0;
+  for threat in &relevant_threats {
+    let threat_pos = threat.get_position();
+    avg_threat_x += threat_pos.x as f32;
+    avg_threat_y += threat_pos.y as f32;
+  }
+  avg_threat_x /= relevant_threats.len() as f32;
+  avg_threat_y /= relevant_threats.len() as f32;
+
+  let avoid_x = unit_pos.x as f32 - avg_threat_x;
+  let avoid_y = unit_pos.y as f32 - avg_threat_y;
+
+  let avoid_length = (avoid_x * avoid_x + avoid_y * avoid_y).sqrt();
+  let (norm_avoid_x, norm_avoid_y) = if avoid_length > 0.0 {
+    (avoid_x / avoid_length, avoid_y / avoid_length)
+  } else {
+    (1.0, 0.0)
+  };
+
+  // Add perpendicular component for arc movement (circle around threats)
+  let perp_x = -norm_avoid_y;
+  let perp_y = norm_avoid_x;
+
+  let mut move_x = unit_pos.x as f32 + norm_avoid_x * backward_weight + perp_x * lateral_weight;
+  let mut move_y = unit_pos.y as f32 + norm_avoid_y * backward_weight + perp_y * lateral_weight;
+
+  // Add target component if provided
+  if let (Some(tx), Some(ty)) = (target_x, target_y) {
+    let target_dx = tx as f32 - unit_pos.x as f32;
+    let target_dy = ty as f32 - unit_pos.y as f32;
+    move_x += target_dx * target_weight;
+    move_y += target_dy * target_weight;
+  }
+
+  Some(Position::new(move_x as i32, move_y as i32))
+}
+
+fn attack_nearby_worker(game: &Game, unit: &Unit) -> bool {
+  // Tunable parameters for worker harassment
+  let backward_movement_weight = 90.0;
+  let lateral_movement_weight = 60.0;
+
+  // Get threats with weapon-range-aware detection
+  let nearby_threats =
+    get_threats_with_range_awareness(game, unit.get_position(), unit.get_player().get_id());
+
+  if !nearby_threats.is_empty() {
+    if let Some(move_pos) = calculate_threat_avoidance_move(
+      unit.get_position(),
+      &nearby_threats,
+      None,
+      None,
+      backward_movement_weight,
+      lateral_movement_weight,
+      0.0,
+    ) {
+      let _ = unit.move_(move_pos);
+      return true;
+    }
+  }
+
+  // Only attack workers if no threats nearby
+  let nearby_workers =
+    get_worker_enemies_within(game, unit.get_position(), 200.0, unit.get_player().get_id());
+
+  if let Some(closest_worker) = nearby_workers.first() {
+    let unit_order = unit.get_order();
+    let order_target = unit.get_target();
+
+    if unit_order != Order::AttackUnit
+      || order_target.map(|u: Unit| u.get_id()) != Some(closest_worker.get_id())
+    {
+      let _ = unit.attack(closest_worker);
+    }
+    return true;
+  }
+  false
+}
+
+fn move_avoiding_threats(game: &Game, unit: &Unit, target_x: i32, target_y: i32) -> bool {
+  // Tunable parameters
+  let backward_movement_weight = 30.0;
+  let lateral_movement_weight = 65.0;
+  let target_movement_weight = 0.05;
+
+  // Get threats with weapon-range-aware detection
+  let nearby_threats =
+    get_threats_with_range_awareness(game, unit.get_position(), unit.get_player().get_id());
+
+  if nearby_threats.is_empty() {
+    return false;
+  }
+
+  if let Some(move_pos) = calculate_threat_avoidance_move(
+    unit.get_position(),
+    &nearby_threats,
+    Some(target_x),
+    Some(target_y),
+    backward_movement_weight,
+    lateral_movement_weight,
+    target_movement_weight,
+  ) {
+    let unit_order = unit.get_order();
+    let order_target = unit.get_order_target_position();
+    if unit_order != Order::Move || order_target != Some(move_pos) {
+      let _ = unit.move_(move_pos);
+    }
+    return true;
+  }
+
+  false
+}
+
+fn move_to_target(unit: &Unit, target_x: i32, target_y: i32) {
+  let target_position = Position::new(target_x, target_y);
+  let unit_order = unit.get_order();
+  let order_target = unit.get_order_target_position();
+  if unit_order != Order::Move || order_target != Some(target_position) {
+    let _ = unit.move_(target_position);
   }
 }
 
@@ -174,7 +365,21 @@ fn unit_in_squad_control(game: &Game, unit: &Unit, squad: &MilitarySquad) {
           }
         }
       }
-      SquadStatus::Attacking => {}
+      SquadStatus::Attacking => {
+        if attack_nearby_worker(game, unit) {
+          return;
+        }
+
+        let Some((target_x, target_y)) = squad.target_position else {
+          return;
+        };
+
+        if move_avoiding_threats(game, unit, target_x, target_y) {
+          return;
+        }
+
+        move_to_target(unit, target_x, target_y);
+      }
     },
   }
 }
@@ -194,166 +399,6 @@ fn get_units_close_to_position(units: &[Unit], position: (i32, i32), radius: f32
     })
     .count()
 }
-
-// fn update_military_assignments(my_military_units: &[Unit], game_state: &mut GameState) {
-//   let Some(path_to_enemy) = &game_state.path_to_enemy_base else {
-//     println!("No path to enemy base available for military assignment");
-//     return;
-//   };
-
-//   let assigned_unit_ids: HashSet<usize> = game_state.military_squads.keys().copied().collect();
-
-//   let unassigned_units: Vec<&Unit> = my_military_units
-//     .iter()
-//     .filter(|u| !assigned_unit_ids.contains(&(u.get_id() as usize)))
-//     .collect();
-
-//   let military_unit_count = my_military_units.len();
-
-//   let unit_count_close_to_greatest_path_index =
-//     count_units_near_furthest_unit(my_military_units, game_state);
-
-//   let target_path_goal_index = if military_unit_count < 5 {
-//     path_to_enemy.len() / 4
-//   } else if military_unit_count < 15 || unit_count_close_to_greatest_path_index < 12 {
-//     path_to_enemy.len() / 2
-//   } else {
-//     path_to_enemy.len() - 1
-//   };
-
-//   for unit in unassigned_units {
-//     game_state.military_squads.insert(
-//       unit.get_id() as usize,
-//       MilitarySquad {
-//         target_position: None,
-//         target_unit: None,
-//         target_path: Some(path_to_enemy.clone()),
-//         target_path_current_index: Some(0),
-//         target_path_goal_index: Some(target_path_goal_index),
-//       },
-//     );
-//   }
-
-//   for unit_id in assigned_unit_ids.iter() {
-//     if let Some(assignment) = game_state.military_squads.get_mut(unit_id) {
-//       if assignment.target_path.is_some() {
-//         assignment.target_path_goal_index = Some(target_path_goal_index);
-//         // If the new goal index is less than current index, reduce current index
-//         if let Some(current_index) = assignment.target_path_current_index {
-//           if target_path_goal_index < current_index {
-//             assignment.target_path_current_index = Some(target_path_goal_index);
-//           }
-//         }
-//       }
-//     }
-//   }
-
-//   for unit_id in assigned_unit_ids {
-//     if game_state.military_squads[&unit_id].target_path.is_some() {
-//       let Some(unit) = my_military_units
-//         .iter()
-//         .find(|u| u.get_id() as usize == unit_id)
-//       else {
-//         println!(
-//           "Could not find unit with id {} for military assignment update",
-//           unit_id
-//         );
-//         continue;
-//       };
-//       update_path_assignment_if_close_to_goal(
-//         &unit,
-//         game_state.military_squads.get_mut(&unit_id).unwrap(),
-//       );
-//     }
-//   }
-// }
-
-// fn count_units_near_furthest_unit(my_military_units: &[Unit], game_state: &GameState) -> usize {
-//   let mut max_index: Option<usize> = None;
-//   let mut furthest_unit_id: Option<usize> = None;
-
-//   // Find the unit with the greatest current_index
-//   for (unit_id, assignment) in game_state.military_squads.iter() {
-//     if let (Some(current_index), Some(_path)) = (
-//       assignment.target_path_current_index,
-//       &assignment.target_path,
-//     ) {
-//       if max_index.is_none() || current_index > max_index.unwrap() {
-//         max_index = Some(current_index);
-//         furthest_unit_id = Some(*unit_id);
-//       }
-//     }
-//   }
-
-//   // Count units within 50 pixels of the furthest unit
-//   if let Some(furthest_id) = furthest_unit_id {
-//     if let Some(furthest_unit) = my_military_units
-//       .iter()
-//       .find(|u| u.get_id() as usize == furthest_id)
-//     {
-//       let furthest_pos = furthest_unit.get_position();
-//       my_military_units
-//         .iter()
-//         .filter(|u| {
-//           let pos = u.get_position();
-//           let dx = (pos.x - furthest_pos.x) as f32;
-//           let dy = (pos.y - furthest_pos.y) as f32;
-//           let distance = (dx * dx + dy * dy).sqrt();
-//           distance <= 50.0
-//         })
-//         .count()
-//     } else {
-//       0
-//     }
-//   } else {
-//     0
-//   }
-// }
-
-// fn update_path_assignment_if_close_to_goal(unit: &Unit, assignment: &mut MilitarySquad) {
-//   let Some(goal_index) = assignment.target_path_goal_index else {
-//     return;
-//   };
-//   let Some(path) = &assignment.target_path else {
-//     return;
-//   };
-//   let Some(current_index) = assignment.target_path_current_index else {
-//     return;
-//   };
-
-//   if current_index >= path.len() || goal_index >= path.len() {
-//     return;
-//   }
-
-//   let unit_position = unit.get_position();
-//   let current_position = Position::new(path[current_index].0, path[current_index].1);
-
-//   let dx = (unit_position.x - current_position.x) as f32;
-//   let dy = (unit_position.y - current_position.y) as f32;
-//   let distance = (dx * dx + dy * dy).sqrt();
-//   let close_enough_threshold = 30.0;
-//   let advance_increment = 20;
-
-//   if distance <= close_enough_threshold && current_index < goal_index {
-//     let next_index = (current_index + advance_increment).min(goal_index);
-//     assignment.target_path_current_index = Some(next_index);
-//   }
-//   if current_index > goal_index {
-//     assignment.target_path_current_index = Some(goal_index);
-//   }
-// }
-
-// fn get_offensive_target(game: &Game, self_player: &Player) -> Option<Position> {
-//   let start_locations = game.get_start_locations();
-//   let Some(self_start) = start_locations.get(self_player.get_id() as usize) else {
-//     println!("Could not get self start location");
-//     return None;
-//   };
-
-//   let self_start_pos = Position::new(self_start.x * 32 + 16, self_start.y * 32 + 16);
-//   chokepoint_to_guard_base(game, &self_start_pos)
-// }
-
 pub fn draw_military_assignments(game: &Game, game_state: &GameState) {
   for squad in &game_state.military_squads {
     if let Some(target_path) = squad.target_path.as_ref() {
@@ -361,10 +406,7 @@ pub fn draw_military_assignments(game: &Game, game_state: &GameState) {
 
       if let Some(index) = squad.target_path_index {
         if index < target_path.len() {
-          let target_pos = Position::new(
-            target_path[index].0,
-            target_path[index].1,
-          );
+          let target_pos = Position::new(target_path[index].0, target_path[index].1);
           game.draw_circle_map(target_pos, 10, Color::Red, false);
         }
       }
@@ -384,19 +426,71 @@ pub fn draw_military_assignments(game: &Game, game_state: &GameState) {
   }
 }
 
-// fn enforce_attack_position_assignment(unit: &Unit, assignment: &MilitarySquad) {
-//   let Some((target_x, target_y)) = assignment.target_position else {
-//     return;
-//   };
+fn get_threats_with_range_awareness(
+  game: &Game,
+  position: Position,
+  player_id: usize,
+) -> Vec<Unit> {
+  let max_detection_radius = 300.0;
+  let radius_squared = max_detection_radius * max_detection_radius;
 
-//   let target_position = Position::new(target_x, target_y);
-//   let unit_order = unit.get_order();
-//   let order_target = unit.get_order_target_position();
+  let mut threats: Vec<(Unit, f32)> = game
+    .get_all_units()
+    .into_iter()
+    .filter_map(|u| {
+      if u.get_player().get_id() == player_id {
+        return None;
+      }
 
-//   if unit_order != Order::AttackMove || order_target != Some(target_position) {
-//     let _ = unit.attack(target_position);
-//   }
-// }
+      if u.get_type() == UnitType::Zerg_Drone {
+        return None;
+      }
+
+      let unit_type = u.get_type();
+      let ground_weapon = unit_type.ground_weapon();
+      let air_weapon = unit_type.air_weapon();
+
+      if ground_weapon == WeaponType::None && air_weapon == WeaponType::None {
+        return None;
+      }
+
+      let enemy_pos = u.get_position();
+      let dx = (position.x - enemy_pos.x) as f32;
+      let dy = (position.y - enemy_pos.y) as f32;
+      let distance_squared = dx * dx + dy * dy;
+
+      if distance_squared > radius_squared {
+        return None;
+      }
+
+      // Determine threat range based on weapon range
+      let weapon_range = if ground_weapon != WeaponType::None {
+        ground_weapon.max_range() as f32
+      } else {
+        air_weapon.max_range() as f32
+      };
+
+      // Melee units (range <= 32) are only threats when very close
+      // Ranged units are threats from further away
+      let threat_radius = if weapon_range <= 32.0 {
+        60.0 // Melee threat radius
+      } else {
+        weapon_range + 100.0 // Ranged threat radius (weapon range + buffer)
+      };
+
+      let threat_radius_squared = threat_radius * threat_radius;
+
+      if distance_squared <= threat_radius_squared {
+        Some((u, distance_squared))
+      } else {
+        None
+      }
+    })
+    .collect();
+
+  threats.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+  threats.into_iter().map(|(u, _)| u).collect()
+}
 
 fn get_enemies_within(game: &Game, position: Position, radius: f32, player_id: usize) -> Vec<Unit> {
   let radius_squared = radius * radius;
@@ -407,6 +501,19 @@ fn get_enemies_within(game: &Game, position: Position, radius: f32, player_id: u
       if u.get_player().get_id() == player_id {
         return None;
       }
+
+      if u.get_type() == UnitType::Zerg_Drone {
+        return None;
+      }
+
+      // Only count units that can attack (have ground or air weapon)
+      let unit_type = u.get_type();
+      let ground_weapon = unit_type.ground_weapon();
+      let air_weapon = unit_type.air_weapon();
+      if ground_weapon == WeaponType::None && air_weapon == WeaponType::None {
+        return None;
+      }
+
       let enemy_pos = u.get_position();
       let dx = (position.x - enemy_pos.x) as f32;
       let dy = (position.y - enemy_pos.y) as f32;
@@ -423,45 +530,40 @@ fn get_enemies_within(game: &Game, position: Position, radius: f32, player_id: u
   enemies.into_iter().map(|(u, _)| u).collect()
 }
 
-// fn enforce_path_following_assignment(game: &Game, unit: &Unit, assignment: &mut MilitarySquad) {
-//   let Some(target_path_current_index) = assignment.target_path_current_index else {
-//     return;
-//   };
-//   let Some(target_path_goal_index) = assignment.target_path_goal_index else {
-//     return;
-//   };
-//   let Some(target_path) = &assignment.target_path else {
-//     return;
-//   };
+fn get_worker_enemies_within(
+  game: &Game,
+  position: Position,
+  radius: f32,
+  player_id: usize,
+) -> Vec<Unit> {
+  let radius_squared = radius * radius;
+  let mut workers: Vec<(Unit, f32)> = game
+    .get_all_units()
+    .into_iter()
+    .filter_map(|u| {
+      if u.get_player().get_id() == player_id {
+        return None;
+      }
+      let unit_type = u.get_type();
+      // Check if it's a worker unit
+      if unit_type != UnitType::Terran_SCV
+        && unit_type != UnitType::Protoss_Probe
+        && unit_type != UnitType::Zerg_Drone
+      {
+        return None;
+      }
+      let enemy_pos = u.get_position();
+      let dx = (position.x - enemy_pos.x) as f32;
+      let dy = (position.y - enemy_pos.y) as f32;
+      let distance_squared = dx * dx + dy * dy;
+      if distance_squared <= radius_squared {
+        Some((u, distance_squared))
+      } else {
+        None
+      }
+    })
+    .collect();
 
-//   let nearby_enemy_units =
-//     get_enemies_within(game, unit.get_position(), 50.0, unit.get_player().get_id());
-
-//   if let Some(closest_enemy) = nearby_enemy_units.first() {
-//     let unit_order = unit.get_order();
-//     let order_target = unit.get_target();
-//     if unit_order != Order::AttackMove
-//       || order_target.map(|u| u.get_id()) != Some(closest_enemy.get_id())
-//     {
-//       let _ = unit.attack(closest_enemy);
-//     }
-//     return;
-//   }
-
-//   if target_path_current_index >= target_path.len()
-//     || target_path_current_index > target_path_goal_index
-//   {
-//     return;
-//   }
-
-//   let target_position = Position::new(
-//     target_path[target_path_current_index].0,
-//     target_path[target_path_current_index].1,
-//   );
-
-//   let unit_order = unit.get_order();
-//   let order_target = unit.get_order_target_position();
-//   if unit_order != Order::AttackMove || order_target != Some(target_position) {
-//     let _ = unit.attack(target_position);
-//   }
-// }
+  workers.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+  workers.into_iter().map(|(u, _)| u).collect()
+}

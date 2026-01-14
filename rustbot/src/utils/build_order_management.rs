@@ -3,23 +3,19 @@ use crate::utils::building_stuff::{creature_stuff, structure_stuff};
 use crate::utils::game_state::{BuildOrderItem, GameState, SharedGameState};
 use rsbwapi::*;
 
-pub fn build_order_onframe(game: &Game, game_state: &SharedGameState) {
+pub fn make_assignment_for_current_build_order_item(game: &Game, game_state: &SharedGameState) {
   let Ok(mut game_state) = game_state.lock() else {
-    println!("Failed to lock game_state in build_order_onframe");
+    println!("Failed to lock game_state in make_assignment_for_current_build_order_item");
     return;
   };
 
   let Some(player) = game.self_() else {
-    println!("Failed to get self player in build_order_onframe");
+    println!("Failed to get self player in make_assignment_for_current_build_order_item");
     return;
   };
 
-  creature_stuff::advance_build_order_for_morphed_larvae(game, &mut game_state, &player);
-  structure_stuff::advance_build_order_if_building_building(game, &mut game_state, &player);
-
   if game_state.build_order_index >= game_state.build_order.len() {
-    println!("build order empty");
-    figure_out_what_to_build(game, &mut game_state);
+    println!("build order empty in make_assignment_for_current_build_order_item");
     return;
   }
   let thing_to_build = game_state.build_order[game_state.build_order_index].clone();
@@ -28,10 +24,52 @@ pub fn build_order_onframe(game: &Game, game_state: &SharedGameState) {
     if unit_to_build.is_building() {
       structure_stuff::build_building_onframe(game, &mut game_state, &player, unit_to_build);
     } else {
-      creature_stuff::build_unit_from_larva_onframe(game, &mut game_state, &player, unit_to_build);
+      creature_stuff::make_assignment_for_unit_from_larva(
+        game,
+        &mut game_state,
+        &player,
+        unit_to_build,
+      );
     }
-  } else if let BuildOrderItem::Upgrade(upgrade_to_build) = thing_to_build {
-    research_upgrade_onframe(game, &mut game_state, &player, upgrade_to_build);
+  }
+}
+
+pub fn build_order_on_unit_create(game: &Game, completed_unit: &Unit, game_state: &SharedGameState) {
+  let Ok(mut game_state) = game_state.lock() else {
+    println!("Failed to lock game_state in build_order_on_unit_create");
+    return;
+  };
+
+  let Some(player) = game.self_() else {
+    println!("Failed to get self player in build_order_on_unit_create");
+    return;
+  };
+
+  if completed_unit.get_player().get_id() != player.get_id() {
+    return;
+  }
+
+  let Some(current_build_order_item) = game_state
+    .build_order
+    .get(game_state.build_order_index)
+    .cloned()
+  else {
+    println!("Build order empty in build_order_on_unit_create");
+    return;
+  };
+
+  match current_build_order_item {
+    BuildOrderItem::Unit(unit_type) => {
+      if completed_unit.get_type() == unit_type {
+        println!(
+          "Completed build order item: {:?} (unit created)",
+          current_build_order_item
+        );
+        game_state.build_order_index += 1;
+        make_assignment_for_current_build_order_item(game, game_state);
+      }
+    }
+    BuildOrderItem::Upgrade(upgrade_type) => {}
   }
 }
 
