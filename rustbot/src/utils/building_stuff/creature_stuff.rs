@@ -1,42 +1,42 @@
 use rsbwapi::*;
 use crate::utils::game_state::*;
 
-pub fn advance_build_order_for_morphed_larvae(
-  game: &Game,
-  game_state: &mut GameState,
-  player: &Player,
-) {
-  let current_larva_ids: std::collections::HashSet<usize> = game
-    .get_all_units()
-    .into_iter()
-    .filter(|u| u.get_type() == UnitType::Zerg_Larva && u.get_player().get_id() == player.get_id())
-    .map(|u| u.get_id() as usize)
-    .collect();
+// pub fn advance_build_order_for_morphed_larvae(
+//   game: &Game,
+//   game_state: &mut GameState,
+//   player: &Player,
+// ) {
+//   let current_larva_ids: std::collections::HashSet<usize> = game
+//     .get_all_units()
+//     .into_iter()
+//     .filter(|u| u.get_type() == UnitType::Zerg_Larva && u.get_player().get_id() == player.get_id())
+//     .map(|u| u.get_id() as usize)
+//     .collect();
 
-  let mut morphed_indices = Vec::new();
-  game_state
-    .larva_responsibilities
-    .retain(|larva_id, build_idx| {
-      if !current_larva_ids.contains(larva_id) {
-        morphed_indices.push(*build_idx);
-        false
-      } else {
-        true
-      }
-    });
+//   let mut morphed_indices = Vec::new();
+//   game_state
+//     .larva_responsibilities
+//     .retain(|larva_id, build_idx| {
+//       if !current_larva_ids.contains(larva_id) {
+//         morphed_indices.push(*build_idx);
+//         false
+//       } else {
+//         true
+//       }
+//     });
 
-  for morphed_idx in morphed_indices {
-    if morphed_idx == game_state.build_order_index {
-      game_state.build_order_index += 1;
-      println!(
-        "Larva morphed, advancing build order index to {}",
-        game_state.build_order_index
-      );
-    }
-  }
-}
+//   for morphed_idx in morphed_indices {
+//     if morphed_idx == game_state.build_order_index {
+//       game_state.build_order_index += 1;
+//       println!(
+//         "Larva morphed, advancing build order index to {}",
+//         game_state.build_order_index
+//       );
+//     }
+//   }
+// }
 
-pub fn build_unit_from_larva_onframe(
+pub fn assign_larva_to_build_unit(
   game: &Game,
   game_state: &mut GameState,
   player: &Player,
@@ -66,15 +66,6 @@ pub fn build_unit_from_larva_onframe(
     return;
   }
 
-  build_unit_from_larva(game, game_state, &larva_units, unit_type);
-}
-
-fn build_unit_from_larva(
-  game: &Game,
-  game_state: &mut GameState,
-  larva_units: &[Unit],
-  unit_type: UnitType,
-) {
   // Find a larva that doesn't have a responsibility yet
   let available_larva = larva_units.iter().find(|larva| {
     !game_state

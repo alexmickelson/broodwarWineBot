@@ -1,9 +1,8 @@
-use crate::utils::building_stuff::researching_stuff::research_upgrade_onframe;
 use crate::utils::building_stuff::{creature_stuff, structure_stuff};
 use crate::utils::game_state::{BuildOrderItem, GameState, SharedGameState};
 use rsbwapi::*;
 
-pub fn make_assignment_for_current_build_order_item(game: &Game, game_state: &SharedGameState) {
+fn make_assignment_for_current_build_order_item(game: &Game, game_state: &SharedGameState) {
   let Ok(mut game_state) = game_state.lock() else {
     println!("Failed to lock game_state in make_assignment_for_current_build_order_item");
     return;
@@ -24,18 +23,17 @@ pub fn make_assignment_for_current_build_order_item(game: &Game, game_state: &Sh
     if unit_to_build.is_building() {
       structure_stuff::build_building_onframe(game, &mut game_state, &player, unit_to_build);
     } else {
-      creature_stuff::make_assignment_for_unit_from_larva(
-        game,
-        &mut game_state,
-        &player,
-        unit_to_build,
-      );
+      creature_stuff::assign_larva_to_build_unit(game, &mut game_state, &player, unit_to_build);
     }
   }
 }
 
-pub fn build_order_on_unit_create(game: &Game, completed_unit: &Unit, game_state: &SharedGameState) {
-  let Ok(mut game_state) = game_state.lock() else {
+pub fn build_order_on_unit_create(
+  game: &Game,
+  completed_unit: &Unit,
+  game_state: &SharedGameState,
+) {
+  let Ok(mut gs) = game_state.lock() else {
     println!("Failed to lock game_state in build_order_on_unit_create");
     return;
   };
@@ -49,11 +47,7 @@ pub fn build_order_on_unit_create(game: &Game, completed_unit: &Unit, game_state
     return;
   }
 
-  let Some(current_build_order_item) = game_state
-    .build_order
-    .get(game_state.build_order_index)
-    .cloned()
-  else {
+  let Some(current_build_order_item) = gs.build_order.get(gs.build_order_index).cloned() else {
     println!("Build order empty in build_order_on_unit_create");
     return;
   };
@@ -65,7 +59,8 @@ pub fn build_order_on_unit_create(game: &Game, completed_unit: &Unit, game_state
           "Completed build order item: {:?} (unit created)",
           current_build_order_item
         );
-        game_state.build_order_index += 1;
+        gs.build_order_index += 1;
+        drop(gs);
         make_assignment_for_current_build_order_item(game, game_state);
       }
     }
