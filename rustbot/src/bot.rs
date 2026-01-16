@@ -30,26 +30,21 @@ impl AiModule for RustBot {
     };
 
     game_state.military_squads.push(initial_squad);
+
+    println!("Making initial build order assignment");
+    build_order_management::make_assignment_for_current_build_order_item(game, &mut game_state);
   }
 
   fn on_frame(&mut self, game: &Game) {
+    // println!("Frame {}", game.get_frame_count());
     let Ok(mut locked_state) = self.game_state.lock() else {
       return;
     };
 
     update_game_speed(game, &locked_state);
 
-    let all_my_overlords_that_are_not_moving = game
-      .get_all_units()
-      .into_iter()
-      .filter(|u| {
-        u.get_player().get_id() == game.self_().unwrap().get_id()
-          && u.get_type() == UnitType::Zerg_Overlord
-          && u.get_order() != Order::Move
-      })
-      .collect::<Vec<Unit>>();
 
-    build_order_management::build_order_on_frame(game, &mut locked_state);
+    build_order_management::build_order_enforce_assignments(game, &mut locked_state);
 
     worker_management::update_assignments(game, &mut locked_state);
     worker_management::enforce_assignments(game, &mut locked_state);
@@ -65,11 +60,12 @@ impl AiModule for RustBot {
     }
   }
 
-  // creatures and new buildings -> on_unit_create
+  // new buildings -> on_unit_create
   // evolving buildings for zerg -> on_unit_morph
   // evolving larvae for zerg -> on_unit_morph
   // upgrades -> need to figure out in on_frame
   fn on_unit_create(&mut self, game: &Game, unit: Unit) {
+    println!("unit created: {:?}", unit.get_type());
     if game.get_frame_count() < 1 {
       return;
     }
@@ -80,19 +76,21 @@ impl AiModule for RustBot {
 
     build_order_management::build_order_on_unit_started(game, &unit, &mut locked_state);
   }
-  fn on_unit_morph(&mut self, _game: &Game, unit: Unit) {
+  fn on_unit_morph(&mut self, game: &Game, unit: Unit) {
     println!(
-      "unit started morphing: {:?} -> {:?}",
+      "unit {} started morphing: {:?} -> {:?}",
+      unit.get_id(),
       unit.get_type(),
       unit.get_build_type()
     );
     let Ok(mut locked_state) = self.game_state.lock() else {
       return;
     };
-    if unit.get_build_type() == UnitType::None {
-      // unit finished morphing, remove larva responsibility
-
+    if unit.get_type() == UnitType::Zerg_Egg {
+      // unit started morphing, remove larva responsibility
       creature_stuff::remove_larva_responsibility(&mut locked_state, &unit);
+      locked_state.build_order_index += 1;
+      build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
       return;
     }
   }
@@ -140,37 +138,14 @@ fn update_game_speed(game: &Game, game_state: &GameState) {
   unsafe {
     let game_ptr = game as *const Game as *mut Game;
     (*game_ptr).set_local_speed(speed);
+
+    if speed == 0 {
+      (*game_ptr).set_frame_skip(5);
+    } else {
+      (*game_ptr).set_frame_skip(0);
+    }
   }
 }
-
-// fn update_path_to_enemy(game: &Game, game_state: &SharedGameState) {
-//   let Some(mut game_state) = game_state.lock().ok() else {
-//     return;
-//   };
-
-//   if game_state.path_to_enemy_base.is_none() {
-//     let Some(self_player) = game.self_() else {
-//       return;
-//     };
-
-//     let start_locations = game.get_start_locations();
-//     let Some(my_starting_position) = start_locations.get(self_player.get_id() as usize) else {
-//       return;
-//     };
-
-//     let Some(enemy_location) = start_locations
-//       .iter()
-//       .find(|&loc| loc != my_starting_position)
-//     else {
-//       return;
-//     };
-
-//     let my_pos = (my_starting_position.x * 32, my_starting_position.y * 32);
-//     let enemy_pos = (enemy_location.x * 32, enemy_location.y * 32);
-
-//     game_state.path_to_enemy_base = pathing::get_path_between_points(game, my_pos, enemy_pos);
-//   }
-// }
 
 fn draw_debug_lines(game: &Game, game_state: &GameState) {
   for flag in &game_state.debug_flags {
