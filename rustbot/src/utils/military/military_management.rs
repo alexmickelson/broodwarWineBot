@@ -1,17 +1,13 @@
 use crate::utils::{
-  game_state::{GameState, SharedGameState},
+  game_state::GameState,
   map_utils::pathing,
   military::squad_models::{MilitarySquad, SquadRole, SquadStatus},
 };
 use rsbwapi::*;
 
-pub fn military_onframe(game: &Game, game_state: &mut SharedGameState) {
-  let Ok(mut game_state) = game_state.lock() else {
-    println!("Failed to lock game_state in military_onframe");
-    return;
-  };
-  update_squads(game, &mut game_state);
-  enforce_military_assignments(game, &mut game_state);
+pub fn military_onframe(game: &Game, game_state: &mut GameState) {
+  update_squads(game, game_state);
+  enforce_military_assignments(game, game_state);
 }
 
 pub fn assign_unit_to_squad(game: &Game, unit: &Unit, game_state: &mut GameState) {

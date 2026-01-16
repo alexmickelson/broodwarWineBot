@@ -37,11 +37,23 @@ export const LarvaeAssignments: React.FC = () => {
                   #{larvaId}
                 </span>
               </div>
-              <div className="text-sm">
-                <span className="text-text-secondary">Build order step </span>
-                <span className="text-amber-400 font-medium text-lg">
-                  {buildOrderIndex as number}
-                </span>
+              <div className="space-y-2">
+                <div className="text-sm">
+                  <span className="text-text-secondary">Build order step </span>
+                  <span className="text-amber-400 font-medium text-lg">
+                    {buildOrderIndex as number}
+                  </span>
+                </div>
+                {responsibilities.assignment_details[larvaId] && (
+                  <div className="text-sm">
+                    <span className="text-text-secondary">Evolving into </span>
+                    <span className="text-plasma-400 font-medium">
+                      {responsibilities.assignment_details[larvaId]
+                        .replace("Zerg_", "")
+                        .replace(/_/g, " ")}
+                    </span>
+                  </div>
+                )}
               </div>
             </DataCard>
           )

@@ -2,6 +2,7 @@ const BASE_URL = `http://localhost:3333`;
 
 export interface LarvaeSnapshot {
   larva_responsibilities: Record<string, number>;
+  assignment_details: Record<string, string>;
   frame_count: number;
 }
 

@@ -26,7 +26,6 @@ impl Default for GameState {
       build_order: vec![
         BuildOrderItem::Unit(UnitType::Zerg_Drone),
         BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
         BuildOrderItem::Unit(UnitType::Zerg_Overlord),
         BuildOrderItem::Unit(UnitType::Zerg_Drone),
         BuildOrderItem::Unit(UnitType::Zerg_Drone),

@@ -1,6 +1,6 @@
 use crate::utils::{
   building_stuff::build_location_utils,
-  game_state::{BuildOrderItem, SharedGameState, WorkerAssignment, WorkerAssignmentType},
+  game_state::{BuildOrderItem, GameState, WorkerAssignment, WorkerAssignmentType},
 };
 use rsbwapi::*;
 use std::collections::HashMap;
@@ -18,15 +18,11 @@ fn get_my_workers(game: &Game) -> Vec<Unit> {
     .collect()
 }
 
-pub fn update_assignments(game: &Game, game_state: &SharedGameState) {
+pub fn update_assignments(game: &Game, game_state: &mut GameState) {
   let my_units = get_my_workers(game);
   let workers: Vec<_> = my_units.iter().collect();
 
-  let mut assignments = if let Ok(game_state_lock) = game_state.lock() {
-    game_state_lock.worker_assignments.clone()
-  } else {
-    return;
-  };
+  let mut assignments = game_state.worker_assignments.clone();
 
   remove_dead_workers(&mut assignments, &workers);
 
@@ -131,23 +127,15 @@ pub fn update_assignments(game: &Game, game_state: &SharedGameState) {
     }
   }
 
-  if let Ok(mut game_state_lock) = game_state.lock() {
-    game_state_lock.worker_assignments = assignments;
-  }
+  game_state.worker_assignments = assignments;
 }
 
-pub fn enforce_assignments(game: &Game, game_state: &SharedGameState) {
+pub fn enforce_assignments(game: &Game, game_state: &mut GameState) {
   let my_units = get_my_workers(game);
   let workers: Vec<_> = my_units.iter().collect();
 
-  let (assignments, build_order) = if let Ok(game_state_lock) = game_state.lock() {
-    (
-      game_state_lock.worker_assignments.clone(),
-      game_state_lock.build_order.clone(),
-    )
-  } else {
-    return;
-  };
+  let assignments = game_state.worker_assignments.clone();
+  let build_order = game_state.build_order.clone();
 
   for worker in workers {
     let worker_id = worker.get_id();

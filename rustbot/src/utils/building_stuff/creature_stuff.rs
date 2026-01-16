@@ -1,40 +1,5 @@
-use rsbwapi::*;
 use crate::utils::game_state::*;
-
-// pub fn advance_build_order_for_morphed_larvae(
-//   game: &Game,
-//   game_state: &mut GameState,
-//   player: &Player,
-// ) {
-//   let current_larva_ids: std::collections::HashSet<usize> = game
-//     .get_all_units()
-//     .into_iter()
-//     .filter(|u| u.get_type() == UnitType::Zerg_Larva && u.get_player().get_id() == player.get_id())
-//     .map(|u| u.get_id() as usize)
-//     .collect();
-
-//   let mut morphed_indices = Vec::new();
-//   game_state
-//     .larva_responsibilities
-//     .retain(|larva_id, build_idx| {
-//       if !current_larva_ids.contains(larva_id) {
-//         morphed_indices.push(*build_idx);
-//         false
-//       } else {
-//         true
-//       }
-//     });
-
-//   for morphed_idx in morphed_indices {
-//     if morphed_idx == game_state.build_order_index {
-//       game_state.build_order_index += 1;
-//       println!(
-//         "Larva morphed, advancing build order index to {}",
-//         game_state.build_order_index
-//       );
-//     }
-//   }
-// }
+use rsbwapi::*;
 
 pub fn assign_larva_to_build_unit(
   game: &Game,
@@ -42,7 +7,6 @@ pub fn assign_larva_to_build_unit(
   player: &Player,
   unit_type: UnitType,
 ) {
-
   let needed_minerals = unit_type.mineral_price();
 
   let larva_units: Vec<Unit> = game
@@ -51,15 +15,12 @@ pub fn assign_larva_to_build_unit(
     .filter(|u| u.get_type() == UnitType::Zerg_Larva && u.get_player().get_id() == player.get_id())
     .collect();
 
-  game.draw_text_screen(
-    (0, 0),
-    &format!(
-      "next {:?}, {}/{} minerals, {} larva",
-      unit_type,
-      player.minerals(),
-      needed_minerals,
-      larva_units.len()
-    ),
+  println!(
+    "assigning larva to build unit {:?}, {}/{} minerals, {} larva",
+    unit_type,
+    player.minerals(),
+    needed_minerals,
+    larva_units.len()
   );
 
   if player.minerals() < needed_minerals {
@@ -89,6 +50,23 @@ pub fn assign_larva_to_build_unit(
     println!(
       "Assigned larva {} to build order index {}",
       larva_id, current_build_idx
+    );
+  }
+}
+
+pub fn remove_larva_responsibility(game_state: &mut GameState, unit: &Unit) {
+  let unit_id = unit.get_id() as usize;
+  if game_state.larva_responsibilities.remove(&unit_id).is_some() {
+    println!(
+      "Removed larva responsibility for unit {} (finished morphing into {:?})",
+      unit_id,
+      unit.get_type()
+    );
+  } else {
+    println!(
+      "No larva responsibility found for unit {} (finished morphing into {:?})",
+      unit_id,
+      unit.get_type()
     );
   }
 }

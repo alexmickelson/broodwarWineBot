@@ -199,6 +199,7 @@ async fn unit_orders_handler(
 #[derive(Clone, Debug, Serialize)]
 pub struct LarvaeSnapshot {
   pub larva_responsibilities: HashMap<usize, usize>,
+  pub assignment_details: HashMap<usize, String>,
   pub frame_count: i32,
 }
 
@@ -209,8 +210,21 @@ async fn larvae_handler(
 
   let callback = Box::new(
     move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
+      let mut assignment_details = HashMap::new();
+      for (larva_id, build_order_idx) in &state.larva_responsibilities {
+        if let Some(item) = state.build_order.get(*build_order_idx) {
+          let detail = match item {
+            crate::utils::game_state::BuildOrderItem::Unit(unit_type) => format!("{:?}", unit_type),
+            crate::utils::game_state::BuildOrderItem::Upgrade(upgrade_type) => {
+              format!("{:?}", upgrade_type)
+            }
+          };
+          assignment_details.insert(*larva_id, detail);
+        }
+      }
       let snapshot = LarvaeSnapshot {
         larva_responsibilities: state.larva_responsibilities.clone(),
+        assignment_details,
         frame_count: _game.get_frame_count(),
       };
       let _ = tx.send(snapshot);
@@ -222,6 +236,7 @@ async fn larvae_handler(
   } else {
     return Json(LarvaeSnapshot {
       larva_responsibilities: HashMap::new(),
+      assignment_details: HashMap::new(),
       frame_count: -1,
     });
   }
@@ -230,6 +245,7 @@ async fn larvae_handler(
     Ok(snapshot) => Json(snapshot),
     Err(_) => Json(LarvaeSnapshot {
       larva_responsibilities: HashMap::new(),
+      assignment_details: HashMap::new(),
       frame_count: -1,
     }),
   }
