@@ -68,6 +68,10 @@ pub fn make_assignment_for_current_build_order_item(game: &Game, game_state: &mu
 }
 
 pub fn build_order_enforce_assignments(game: &Game, game_state: &mut GameState) {
+  let Some(player) = game.self_() else {
+    println!("Failed to get self player in make_assignment_for_current_build_order_item");
+    return;
+  };
   if game_state.build_order_index >= game_state.build_order.len() {
     println!("nothing to build");
     return;
@@ -83,8 +87,8 @@ pub fn build_order_enforce_assignments(game: &Game, game_state: &mut GameState) 
         enforce_larvae_assignment(game, game_state);
       }
     }
-    BuildOrderItem::Upgrade(_) => {
-      // Upgrades are handled elsewhere
+    BuildOrderItem::Upgrade(upgrade_type) => {
+      researching_stuff::enforce_research_assignment(game, game_state, &player, upgrade_type);
     }
   }
 }

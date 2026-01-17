@@ -34,7 +34,7 @@ pub fn assign_building_to_research_upgrade(
   );
 }
 
-pub fn research_upgrade_onframe(
+pub fn enforce_research_assignment(
   game: &Game,
   game_state: &mut GameState,
   player: &Player,
@@ -42,74 +42,53 @@ pub fn research_upgrade_onframe(
 ) {
   let current_level = player.get_upgrade_level(upgrade_to_build);
   let needed_minerals = upgrade_to_build.mineral_price(current_level);
+  let needed_gas = upgrade_to_build.gas_price(current_level);
+  let current_gas = player.gas();
 
   game.draw_text_screen(
     (0, 60),
     &format!(
-      "next {:?}, {}/{} minerals",
+      "next {:?}, {}/{} minerals, {}/{} gas",
       upgrade_to_build,
       player.minerals(),
-      needed_minerals
+      needed_minerals,
+      current_gas,
+      needed_gas
     ),
   );
 
-  if player.minerals() < needed_minerals {
+  if player.minerals() < needed_minerals || current_gas < needed_gas {
     return;
   }
 
-  // Find the building that can research this upgrade
-  // Map upgrades to their research buildings for Zerg
-  let research_building_type = match upgrade_to_build {
-    // Unit-specific upgrades
-    UpgradeType::Metabolic_Boost => UnitType::Zerg_Spawning_Pool, // Zergling speed
-    UpgradeType::Adrenal_Glands => UnitType::Zerg_Spawning_Pool,  // Zergling attack speed
-    UpgradeType::Pneumatized_Carapace => UnitType::Zerg_Lair,     // Overlord speed
-    UpgradeType::Ventral_Sacs => UnitType::Zerg_Lair,             // Overlord transport
-    UpgradeType::Antennae => UnitType::Zerg_Lair,                 // Overlord sight range
-    UpgradeType::Chitinous_Plating => UnitType::Zerg_Ultralisk_Cavern, // Ultralisk armor
-    UpgradeType::Anabolic_Synthesis => UnitType::Zerg_Ultralisk_Cavern, // Ultralisk speed
-    UpgradeType::Muscular_Augments => UnitType::Zerg_Hydralisk_Den, // Hydralisk speed
-    UpgradeType::Grooved_Spines => UnitType::Zerg_Hydralisk_Den,  // Hydralisk range
-    UpgradeType::Gamete_Meiosis => UnitType::Zerg_Queens_Nest,    // Queen energy
-    UpgradeType::Metasynaptic_Node => UnitType::Zerg_Defiler_Mound, // Defiler energy
-
-    // Attack and armor upgrades (Evolution Chamber)
-    UpgradeType::Zerg_Melee_Attacks => UnitType::Zerg_Evolution_Chamber, // Ground melee attack
-    UpgradeType::Zerg_Missile_Attacks => UnitType::Zerg_Evolution_Chamber, // Ground ranged attack
-    UpgradeType::Zerg_Carapace => UnitType::Zerg_Evolution_Chamber,      // Ground armor
-
-    // Air attack and armor upgrades (Spire/Greater Spire)
-    UpgradeType::Zerg_Flyer_Attacks => UnitType::Zerg_Spire, // Air attack
-    UpgradeType::Zerg_Flyer_Carapace => UnitType::Zerg_Spire, // Air armor
-
-    _ => {
-      game.draw_text_screen(
-        (0, 80),
-        &format!("Unknown research building for {:?}", upgrade_to_build),
-      );
-      return;
-    }
+  let Some(building_id) =
+    game_state
+      .building_assignments
+      .iter()
+      .find_map(|(&building_id, assignment)| {
+        if assignment.build_order_index == game_state.build_order_index {
+          Some(building_id)
+        } else {
+          None
+        }
+      })
+  else {
+    game.draw_text_screen((0, 80), "No building assigned for this upgrade");
+    return;
   };
 
-  let research_building = game.get_all_units().into_iter().find(|u| {
-    u.get_player().get_id() == player.get_id()
-      && u.get_type() == research_building_type
-      && u.is_completed()
-      && !u.is_upgrading()
-  });
+  let Some(building_unit) = game.get_unit(building_id) else {
+    game.draw_text_screen((0, 80), "Assigned building unit not found");
+    return;
+  };
 
-  if let Some(building) = research_building {
-    if building.upgrade(upgrade_to_build).is_ok() {
-      println!("Started researching upgrade {:?}", upgrade_to_build);
-      game_state.build_order_index += 1;
-    }
+  if building_unit.upgrade(upgrade_to_build).is_ok() {
+    // println!("Started researching upgrade {:?}", upgrade_to_build);
+    // game_state.build_order_index += 1;
   } else {
     game.draw_text_screen(
       (0, 80),
-      &format!(
-        "No {:?} available to research upgrade",
-        research_building_type
-      ),
+      &format!("Failed to start researching upgrade {:?}", upgrade_to_build),
     );
   }
 }
