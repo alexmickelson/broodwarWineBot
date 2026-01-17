@@ -1,4 +1,5 @@
 use crate::utils::build_order_management;
+use crate::utils::build_orders::build_order_item::BuildOrderItem;
 use crate::utils::build_orders::pool_speed_expand;
 use crate::utils::building_stuff::creature_stuff;
 use crate::utils::game_state::{DebugFlag, GameState, SharedGameState};
@@ -91,13 +92,38 @@ impl AiModule for RustBot {
     if unit.get_type() == UnitType::Zerg_Egg {
       // unit started morphing, remove larva responsibility
       creature_stuff::remove_larva_responsibility(&mut locked_state, &unit);
-      println!(
-        "Zerg_Egg started morphing, moving build order from {} -> {}",
-        locked_state.build_order_index,
-        locked_state.build_order_index + 1
-      );
-      locked_state.build_order_index += 1;
-      build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
+      
+      // Check if this morph matches the current build order item
+      let should_advance = if let Some(current_item) = locked_state.build_order.get(locked_state.build_order_index) {
+        match current_item {
+          BuildOrderItem::Unit(expected_unit_type) => {
+            unit.get_build_type() == *expected_unit_type
+          },
+          BuildOrderItem::Upgrade(_) => {
+            // Don't advance on unit morphs if waiting for an upgrade
+            false
+          }
+        }
+      } else {
+        false
+      };
+      
+      if should_advance {
+        println!(
+          "Zerg_Egg started morphing into expected unit {:?}, moving build order from {} -> {}",
+          unit.get_build_type(),
+          locked_state.build_order_index,
+          locked_state.build_order_index + 1
+        );
+        locked_state.build_order_index += 1;
+        build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
+      } else {
+        println!(
+          "Zerg_Egg morphing into {:?}, but not advancing build order (current item: {:?})",
+          unit.get_build_type(),
+          locked_state.build_order.get(locked_state.build_order_index)
+        );
+      }
       return;
     }
 
