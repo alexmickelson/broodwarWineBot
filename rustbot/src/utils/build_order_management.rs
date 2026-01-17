@@ -1,4 +1,4 @@
-use crate::utils::building_stuff::{creature_stuff, structure_stuff};
+use crate::utils::building_stuff::{creature_stuff, researching_stuff, structure_stuff};
 use crate::utils::game_state::{BuildOrderItem, GameState};
 use rsbwapi::*;
 
@@ -53,11 +53,16 @@ pub fn make_assignment_for_current_build_order_item(game: &Game, game_state: &mu
   }
   let thing_to_build = game_state.build_order[game_state.build_order_index].clone();
 
-  if let BuildOrderItem::Unit(unit_to_build) = thing_to_build {
-    if unit_to_build.is_building() {
-      structure_stuff::make_building_assignment(game, game_state, unit_to_build);
-    } else {
-      creature_stuff::assign_larva_to_build_current_index(game, game_state, &player);
+  match thing_to_build {
+    BuildOrderItem::Unit(unit_to_build) => {
+      if unit_to_build.is_building() {
+        structure_stuff::make_building_assignment(game, game_state, unit_to_build);
+      } else {
+        creature_stuff::assign_larva_to_build_current_index(game, game_state, &player);
+      }
+    }
+    BuildOrderItem::Upgrade(upgrade) => {
+      researching_stuff::assign_building_to_research_upgrade(game, game_state, &player, upgrade);
     }
   }
 }
@@ -121,6 +126,24 @@ fn enforce_larvae_assignment(game: &Game, game_state: &mut GameState) {
 
   if let Err(e) = larvae.morph(type_to_morph) {
     game.draw_text_screen((0, 10), format!("Failed to morph larvae: {:?}", e).as_str());
+  }
+}
+
+pub fn remove_drone_assignment_after_started_buidling(
+  old_drone_now_building_unit: &Unit,
+  game_state: &mut GameState,
+) {
+  let drone_id = old_drone_now_building_unit.get_id() as usize;
+  if game_state.worker_assignments.remove(&drone_id).is_some() {
+    println!(
+      "Removed drone {} building assignment after starting construction",
+      drone_id
+    );
+  } else {
+    println!(
+      "No building assignment found for drone {} when trying to remove after starting construction",
+      drone_id
+    );
   }
 }
 

@@ -58,3 +58,4 @@ pub fn remove_larva_responsibility(game_state: &mut GameState, unit: &Unit) {
     );
   }
 }
+

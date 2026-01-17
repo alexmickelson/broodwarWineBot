@@ -117,15 +117,28 @@ impl WorkerAssignment {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BuildingAssignmentType {
+  TrainUnit(UnitType),
+  ResearchUpgrade(UpgradeType),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BuildingAssignment {
-  pub unit_to_train: UnitType,
+  pub assignment_type: BuildingAssignmentType,
   pub build_order_index: usize,
 }
 
 impl BuildingAssignment {
   pub fn new(unit_to_train: UnitType, build_order_index: usize) -> Self {
     Self {
-      unit_to_train,
+      assignment_type: BuildingAssignmentType::TrainUnit(unit_to_train),
+      build_order_index,
+    }
+  }
+
+  pub fn new_upgrade(upgrade_type: UpgradeType, build_order_index: usize) -> Self {
+    Self {
+      assignment_type: BuildingAssignmentType::ResearchUpgrade(upgrade_type),
       build_order_index,
     }
   }

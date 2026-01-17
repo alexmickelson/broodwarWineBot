@@ -43,7 +43,6 @@ impl AiModule for RustBot {
 
     update_game_speed(game, &locked_state);
 
-
     build_order_management::build_order_enforce_assignments(game, &mut locked_state);
 
     worker_management::update_assignments(game, &mut locked_state);
@@ -92,6 +91,15 @@ impl AiModule for RustBot {
       locked_state.build_order_index += 1;
       build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
       return;
+    }
+
+    if unit.get_type().is_building() {
+      build_order_management::remove_drone_assignment_after_started_buidling(
+        &unit,
+        &mut locked_state,
+      );
+      locked_state.build_order_index += 1;
+      build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
     }
   }
 

@@ -1,4 +1,4 @@
-use crate::utils::game_state::{DebugFlag, SharedGameState, WorkerAssignment};
+use crate::utils::game_state::{BuildOrderItem, DebugFlag, SharedGameState, WorkerAssignment};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{
   extract::State,
@@ -80,6 +80,7 @@ async fn command_handler(
 #[derive(Clone, Debug, Serialize)]
 pub struct WorkerStatusSnapshot {
   pub worker_assignments: HashMap<usize, WorkerAssignment>,
+  pub build_order: Vec<BuildOrderItem>,
   pub frame_count: i32,
 }
 
@@ -92,6 +93,7 @@ async fn worker_status_handler(
     move |_game: &rsbwapi::Game, state: &crate::utils::game_state::GameState| {
       let snapshot = WorkerStatusSnapshot {
         worker_assignments: state.worker_assignments.clone(),
+        build_order: state.build_order.clone(),
         frame_count: _game.get_frame_count(),
       };
       let _ = tx.send(snapshot);
@@ -100,6 +102,7 @@ async fn worker_status_handler(
 
   let error_return = WorkerStatusSnapshot {
     worker_assignments: HashMap::new(),
+    build_order: Vec::new(),
     frame_count: -1,
   };
 

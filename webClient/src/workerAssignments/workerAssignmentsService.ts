@@ -1,6 +1,6 @@
 const BASE_URL = `http://localhost:3333`;
 
-export type WorkerAssignmentType = 'Gathering' | 'Scouting' | 'Building';
+export type WorkerAssignmentType = "Gathering" | "Scouting" | "Building";
 
 export interface WorkerAssignment {
   assignment_type: WorkerAssignmentType;
@@ -11,6 +11,7 @@ export interface WorkerAssignment {
 
 export interface WorkerStatusSnapshot {
   worker_assignments: Record<string, WorkerAssignment>;
+  build_order: string[];
   frame_count: number;
 }
 

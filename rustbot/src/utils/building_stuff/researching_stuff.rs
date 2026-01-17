@@ -1,5 +1,38 @@
-use crate::utils::game_state::GameState;
+use crate::utils::game_state::{BuildingAssignment, GameState};
 use rsbwapi::*;
+
+pub fn assign_building_to_research_upgrade(
+  game: &Game,
+  game_state: &mut GameState,
+  player: &Player,
+  upgrade: UpgradeType,
+) {
+  let building_type = upgrade.what_upgrades();
+
+  // Find a building of this type that can research the upgrade
+  let Some(building) = game.get_all_units().into_iter().find(|u| {
+    u.get_player().get_id() == player.get_id()
+      && u.get_type() == building_type
+      && u.is_completed()
+      && !u.is_upgrading()
+  }) else {
+    println!(
+      "No available {:?} found to research upgrade {:?}",
+      building_type, upgrade
+    );
+    return;
+  };
+
+  let building_id = building.get_id() as usize;
+  game_state.building_assignments.insert(
+    building_id,
+    BuildingAssignment::new_upgrade(upgrade, game_state.build_order_index),
+  );
+  println!(
+    "Assigned building {} ({:?}) to research {:?} for build order index {}",
+    building_id, building_type, upgrade, game_state.build_order_index
+  );
+}
 
 pub fn research_upgrade_onframe(
   game: &Game,
