@@ -21,7 +21,7 @@ pub fn assign_larva_to_build_current_index(
   let available_larva = larva_units.iter().find(|larva| {
     !game_state
       .larva_responsibilities
-      .contains_key(&(larva.get_id() as usize))
+      .contains_key(&larva.get_id())
   });
 
   let Some(larva) = available_larva else {
@@ -29,7 +29,7 @@ pub fn assign_larva_to_build_current_index(
     return;
   };
 
-  let larva_id = larva.get_id() as usize;
+  let larva_id = larva.get_id();
   let current_build_idx = game_state.build_order_index;
 
   game_state
@@ -43,7 +43,7 @@ pub fn assign_larva_to_build_current_index(
 }
 
 pub fn remove_larva_responsibility(game_state: &mut GameState, unit: &Unit) {
-  let unit_id = unit.get_id() as usize;
+  let unit_id = unit.get_id();
   if game_state.larva_responsibilities.remove(&unit_id).is_some() {
     println!(
       "Removed larva responsibility for unit {} (finished morphing into {:?})",

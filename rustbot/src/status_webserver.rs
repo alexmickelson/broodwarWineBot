@@ -1,4 +1,5 @@
-use crate::utils::game_state::{BuildOrderItem, DebugFlag, SharedGameState, WorkerAssignment};
+use crate::utils::build_orders::build_order_item::BuildOrderItem;
+use crate::utils::game_state::{DebugFlag, SharedGameState, WorkerAssignment};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{
   extract::State,
@@ -217,8 +218,8 @@ async fn larvae_handler(
       for (larva_id, build_order_idx) in &state.larva_responsibilities {
         if let Some(item) = state.build_order.get(*build_order_idx) {
           let detail = match item {
-            crate::utils::game_state::BuildOrderItem::Unit(unit_type) => format!("{:?}", unit_type),
-            crate::utils::game_state::BuildOrderItem::Upgrade(upgrade_type) => {
+            BuildOrderItem::Unit(unit_type) => format!("{:?}", unit_type),
+            BuildOrderItem::Upgrade(upgrade_type) => {
               format!("{:?}", upgrade_type)
             }
           };

@@ -1,6 +1,5 @@
 use crate::utils::{
-  building_stuff::build_location_utils,
-  game_state::{BuildOrderItem, GameState, WorkerAssignment, WorkerAssignmentType},
+  build_orders::build_order_item::BuildOrderItem, building_stuff::build_location_utils, game_state::{GameState, WorkerAssignment, WorkerAssignmentType}
 };
 use rsbwapi::*;
 use std::collections::HashMap;
@@ -187,7 +186,7 @@ fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerA
     return;
   }
 
-  let Some(mineral) = game.get_unit(assigned_mineral_id) else {
+  let Some(mineral) = game.get_unit(assigned_mineral_id as usize) else {
     println!("Assigned mineral no longer exists"); // should probably handle somewhere else
     return;
   };
@@ -300,7 +299,9 @@ fn enforce_building_assignment(
         );
         return;
       };
-      p
+      // reassign and try again next position
+      assignment.target_position = Some((p.x, p.y));
+      return;
     }
   };
 
@@ -372,7 +373,8 @@ pub fn draw_worker_resource_lines(
       WorkerAssignmentType::Building => {
         if let Some((target_x, target_y)) = assignment.target_position {
           let worker_pos = worker.get_position();
-          let target_pos = Position::new(target_x, target_y);
+          // target_position is stored in tile coordinates, convert to pixels for drawing
+          let target_pos = Position::new(target_x * 32 + 16, target_y * 32 + 16);
           game.draw_line_map(worker_pos, target_pos, Color::Yellow);
         }
       }

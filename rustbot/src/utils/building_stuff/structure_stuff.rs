@@ -124,7 +124,7 @@ fn assign_building_to_morph_into_building(
     return false;
   };
 
-  let building_id = building_of_type.get_id() as usize;
+  let building_id = building_of_type.get_id();
   game_state.building_assignments.insert(
     building_id,
     BuildingAssignment::new(unit_type, current_build_idx),
@@ -153,8 +153,8 @@ fn assign_drone_to_build_building(
     return;
   };
 
-  let drone_id = drone.get_id() as usize;
-  let build_position = (build_location.x * 32, build_location.y * 32);
+  let drone_id = drone.get_id();
+  let build_position = (build_location.x, build_location.y);
 
   game_state.worker_assignments.insert(
     drone_id,
@@ -162,89 +162,7 @@ fn assign_drone_to_build_building(
   );
 
   println!(
-    "Assigned drone {} to build {:?} at position {:?} for build order index {}",
+    "Assigned drone {} to build {:?} at tile position {:?} for build order index {}",
     drone_id, unit_type, build_position, current_build_idx
   );
 }
-
-// pub fn advance_build_order_if_building_building(
-//   game: &Game,
-//   game_state: &mut GameState,
-//   player: &Player,
-// ) {
-//   if game_state.build_order_index >= game_state.build_order.len() {
-//     return;
-//   }
-
-//   let BuildOrderItem::Unit(current_building_type) =
-//     game_state.build_order[game_state.build_order_index]
-//   else {
-//     return;
-//   };
-//   if !current_building_type.is_building() {
-//     return;
-//   }
-
-//   let assigned_worker_id_for_current_index =
-//     game_state
-//       .worker_assignments
-//       .iter()
-//       .find_map(|(&worker_id, assignment)| {
-//         if assignment.build_order_index == Some(game_state.build_order_index) {
-//           Some(worker_id)
-//         } else {
-//           None
-//         }
-//       });
-
-//   // Debug: show assigned worker ID
-//   if let Some(worker_id) = assigned_worker_id_for_current_index {
-//     game.draw_text_screen((0, 30), &format!("Assigned worker ID: {}", worker_id));
-//   }
-
-//   // Check if there's any morphing building of the correct type
-//   // (the building gets a new ID when the drone morphs, so we can't match by worker ID)
-//   let morphing_building_id = game
-//     .get_all_units()
-//     .into_iter()
-//     .find(|u| {
-//       let is_right_type = u.get_type() == current_building_type;
-//       let is_right_player = u.get_player().get_id() == player.get_id();
-//       let is_morphing = !u.is_completed();
-
-//       is_right_type && is_right_player && is_morphing
-//     })
-//     .map(|u| u.get_id() as usize);
-
-//   // If we found a morphing building but no worker assignment, skip it
-//   // (this building is from a previous build order item)
-//   if morphing_building_id.is_some() && assigned_worker_id_for_current_index.is_none() {
-//     game_state.build_order_index += 1;
-//     println!(
-//       "Building started morphing (worker morphed into building), advancing build order index to {}",
-//       game_state.build_order_index
-//     );
-//     return;
-//   }
-
-//   // let Some(building_id) = morphing_building_id else {
-//   //   return;
-//   // };
-
-//   // game.draw_text_screen(
-//   //   (0, 40),
-//   //   &format!(
-//   //     "Building morphing into {:?}: {}",
-//   //     current_building_type, building_id
-//   //   ),
-//   // );
-
-//   // let has_assignment_for_current_index = game_state
-//   //   .worker_assignments
-//   //   .values()
-//   //   .any(|assignment| assignment.build_order_index == Some(game_state.build_order_index));
-
-//   // if has_assignment_for_current_index {
-//   //   return;
-//   // }
-// }

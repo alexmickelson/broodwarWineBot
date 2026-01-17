@@ -1,4 +1,5 @@
 use crate::utils::build_order_management;
+use crate::utils::build_orders::pool_speed_expand;
 use crate::utils::building_stuff::creature_stuff;
 use crate::utils::game_state::{DebugFlag, GameState, SharedGameState};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
@@ -24,6 +25,8 @@ impl AiModule for RustBot {
     let Some(mut game_state) = self.game_state.lock().ok() else {
       return;
     };
+
+    game_state.build_order = pool_speed_expand::build_order();
 
     let Some(initial_squad) = military_management::create_initial_squad(game) else {
       return;
@@ -88,6 +91,11 @@ impl AiModule for RustBot {
     if unit.get_type() == UnitType::Zerg_Egg {
       // unit started morphing, remove larva responsibility
       creature_stuff::remove_larva_responsibility(&mut locked_state, &unit);
+      println!(
+        "Zerg_Egg started morphing, moving build order from {} -> {}",
+        locked_state.build_order_index,
+        locked_state.build_order_index + 1
+      );
       locked_state.build_order_index += 1;
       build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
       return;
@@ -97,6 +105,12 @@ impl AiModule for RustBot {
       build_order_management::remove_drone_assignment_after_started_buidling(
         &unit,
         &mut locked_state,
+      );
+      println!(
+        "{:?} started construction, moving build order from {} -> {}",
+        unit.get_type(),
+        locked_state.build_order_index,
+        locked_state.build_order_index + 1
       );
       locked_state.build_order_index += 1;
       build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
@@ -165,6 +179,7 @@ fn draw_debug_lines(game: &Game, game_state: &GameState) {
       }
       DebugFlag::ShowMilitaryAssignments => {
         military_management::draw_military_assignments(game, &game_state);
+
       }
       DebugFlag::ShowPathToEnemyBase => {
         if let Some(path) = game_state.path_to_enemy_base.as_ref() {

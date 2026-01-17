@@ -34,10 +34,10 @@ export const GameSpeed: React.FC = () => {
 
   return (
     <div className="shrink-0 p-2 bg-void-950/50 rounded border border-plasma-800">
-      <div className="flex gap-8 items-center justify-center">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 items-start lg:items-center justify-center">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
           <span className="text-lavender-500 text-sm font-medium min-w-20">Game Speed:</span>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {gameSpeeds.map((speed) => {
               const isActive = currentGameSpeed === speed.value;
               return (
@@ -52,17 +52,17 @@ export const GameSpeed: React.FC = () => {
                 >
                   <span className="font-mono">{speed.label}</span>
                   {speed.description && (
-                    <span className="ml-1 text-xs opacity-70">({speed.description})</span>
+                    <span className="ml-1 text-xs opacity-70 hidden sm:inline">({speed.description})</span>
                   )}
                 </button>
               );
             })}
           </div>
         </div>
-        <div className="w-px h-8 bg-plasma-800" />
-        <div className="flex items-center gap-3">
+        <div className="hidden lg:block w-px h-8 bg-plasma-800" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
           <span className="text-lavender-500 text-sm font-medium min-w-20">Poll Speed:</span>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {pollSpeeds.map((speed) => {
               const isActive = pollInterval === speed.value;
               return (
@@ -77,7 +77,7 @@ export const GameSpeed: React.FC = () => {
                 >
                   <span className="font-mono">{speed.label}</span>
                   {speed.description && (
-                    <span className="ml-1 text-xs opacity-70">({speed.description})</span>
+                    <span className="ml-1 text-xs opacity-70 hidden sm:inline">({speed.description})</span>
                   )}
                 </button>
               );

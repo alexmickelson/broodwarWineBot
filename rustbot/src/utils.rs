@@ -12,10 +12,16 @@ pub mod building_stuff {
 
 pub mod military {
   pub mod military_management;
+  pub mod squad_attacking;
   pub mod squad_models;
 }
 
 pub mod map_utils {
   pub mod pathing;
   pub mod region_stuff;
+}
+
+pub mod build_orders {
+  pub mod build_order_item;
+  pub mod pool_speed_expand;
 }

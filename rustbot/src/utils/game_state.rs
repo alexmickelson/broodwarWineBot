@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use crate::utils::build_orders::build_order_item::BuildOrderItem;
 use crate::utils::military::squad_models::MilitarySquad;
 
 pub struct GameState {
@@ -23,44 +24,7 @@ impl Default for GameState {
       worker_assignments: HashMap::new(),
       building_assignments: HashMap::new(),
       game_speed: -1,
-      build_order: vec![
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Overlord),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Spawning_Pool),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Hatchery),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Hatchery),
-        BuildOrderItem::Unit(UnitType::Zerg_Extractor),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Upgrade(UpgradeType::Metabolic_Boost), // zergling speed
-        BuildOrderItem::Unit(UnitType::Zerg_Evolution_Chamber),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Drone),
-        BuildOrderItem::Unit(UnitType::Zerg_Overlord),
-        BuildOrderItem::Unit(UnitType::Zerg_Creep_Colony),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Lair),
-        BuildOrderItem::Unit(UnitType::Zerg_Hatchery),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Zergling),
-        BuildOrderItem::Unit(UnitType::Zerg_Hatchery),
-        BuildOrderItem::Upgrade(UpgradeType::Zerg_Melee_Attacks),
-        BuildOrderItem::Unit(UnitType::Zerg_Lair),
-      ],
+      build_order: vec![],
       build_order_index: 0,
       larva_responsibilities: HashMap::new(),
       military_squads: vec![],
@@ -141,36 +105,6 @@ impl BuildingAssignment {
       assignment_type: BuildingAssignmentType::ResearchUpgrade(upgrade_type),
       build_order_index,
     }
-  }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BuildOrderItem {
-  Unit(UnitType),
-  Upgrade(UpgradeType),
-}
-
-impl Serialize for BuildOrderItem {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: serde::Serializer,
-  {
-    match self {
-      BuildOrderItem::Unit(unit_type) => serializer.serialize_str(&format!("{:?}", unit_type)),
-      BuildOrderItem::Upgrade(upgrade_type) => {
-        serializer.serialize_str(&format!("{:?}", upgrade_type))
-      }
-    }
-  }
-}
-
-impl<'de> Deserialize<'de> for BuildOrderItem {
-  fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-  where
-    D: serde::Deserializer<'de>,
-  {
-    // For now, just return a default value as we don't need to deserialize
-    Ok(BuildOrderItem::Unit(UnitType::None))
   }
 }
 

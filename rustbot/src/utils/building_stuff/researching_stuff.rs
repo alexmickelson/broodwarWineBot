@@ -23,7 +23,7 @@ pub fn assign_building_to_research_upgrade(
     return;
   };
 
-  let building_id = building.get_id() as usize;
+  let building_id = building.get_id();
   game_state.building_assignments.insert(
     building_id,
     BuildingAssignment::new_upgrade(upgrade, game_state.build_order_index),

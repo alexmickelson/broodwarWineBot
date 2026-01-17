@@ -1,5 +1,6 @@
+use crate::utils::build_orders::build_order_item::BuildOrderItem;
 use crate::utils::building_stuff::{creature_stuff, researching_stuff, structure_stuff};
-use crate::utils::game_state::{BuildOrderItem, GameState};
+use crate::utils::game_state::GameState;
 use rsbwapi::*;
 
 pub fn build_order_on_unit_started(game: &Game, completed_unit: &Unit, game_state: &mut GameState) {
@@ -32,6 +33,12 @@ pub fn build_order_on_unit_started(game: &Game, completed_unit: &Unit, game_stat
         println!(
           "Completed build order item: {:?} (unit created), moving to next item",
           current_build_order_item
+        );
+        println!(
+          "{:?} finished training/morphing, moving build order from {} -> {}",
+          unit_type,
+          game_state.build_order_index,
+          game_state.build_order_index + 1
         );
         game_state.build_order_index += 1;
         make_assignment_for_current_build_order_item(game, game_state);
@@ -137,7 +144,7 @@ pub fn remove_drone_assignment_after_started_buidling(
   old_drone_now_building_unit: &Unit,
   game_state: &mut GameState,
 ) {
-  let drone_id = old_drone_now_building_unit.get_id() as usize;
+  let drone_id = old_drone_now_building_unit.get_id();
   if game_state.worker_assignments.remove(&drone_id).is_some() {
     println!(
       "Removed drone {} building assignment after starting construction",
