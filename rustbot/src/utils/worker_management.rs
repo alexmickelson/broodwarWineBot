@@ -1,5 +1,7 @@
 use crate::utils::{
-  build_orders::build_order_item::BuildOrderItem, building_stuff::build_location_utils, game_state::{GameState, WorkerAssignment, WorkerAssignmentType}
+  build_orders::build_order_item::BuildOrderItem,
+  building_stuff::build_location_utils,
+  game_state::{GameState, WorkerAssignment, WorkerAssignmentType},
 };
 use rsbwapi::*;
 use std::collections::HashMap;
@@ -134,6 +136,7 @@ pub fn enforce_assignments(game: &Game, game_state: &mut GameState) {
   let workers: Vec<_> = my_units.iter().collect();
 
   let build_order = game_state.build_order.clone();
+  let base_locations = game_state.base_locations.clone();
 
   for worker in workers {
     let worker_id = worker.get_id();
@@ -143,7 +146,7 @@ pub fn enforce_assignments(game: &Game, game_state: &mut GameState) {
           enforce_gathering_assignment(game, worker, assignment);
         }
         WorkerAssignmentType::Building => {
-          enforce_building_assignment(game, worker, assignment, &build_order);
+          enforce_building_assignment(game, worker, assignment, &build_order, &base_locations);
         }
       }
     }
@@ -222,18 +225,92 @@ fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerA
   println!("worker with unknown order {:?}", worker_order);
 }
 
+fn get_hatchery_build_position(
+  game: &Game,
+  worker: &Unit,
+  base_locations: &[TilePosition],
+  base_index: &Option<usize>,
+  worker_id: usize,
+) -> Option<TilePosition> {
+  if let Some(idx) = base_index {
+    if let Some(base_tile) = base_locations.get(*idx) {
+      Some(TilePosition::new(base_tile.x, base_tile.y))
+    } else {
+      println!(
+        "Worker {} base index {} out of bounds for hatchery (available bases: {})",
+        worker_id,
+        idx,
+        base_locations.len()
+      );
+      None
+    }
+  } else {
+    build_location_utils::get_buildable_location(
+      game,
+      worker,
+      UnitType::Zerg_Hatchery,
+      base_locations,
+      *base_index,
+    )
+  }
+}
+
+fn get_or_find_build_position(
+  game: &Game,
+  worker: &Unit,
+  assignment: &mut WorkerAssignment,
+  building_type: UnitType,
+  base_index: &Option<usize>,
+  base_locations: &[TilePosition],
+  worker_id: usize,
+) -> Option<TilePosition> {
+  match assignment.target_position {
+    Some((x, y)) => Some(TilePosition::new(x, y)),
+    None => {
+      let tile_pos = if building_type == UnitType::Zerg_Hatchery {
+        get_hatchery_build_position(game, worker, base_locations, base_index, worker_id)
+      } else {
+        build_location_utils::get_buildable_location(
+          game,
+          worker,
+          building_type,
+          base_locations,
+          *base_index,
+        )
+      };
+
+      let Some(tile_pos) = tile_pos else {
+        println!(
+          "Worker {} could not find valid build location for {:?} at base_index {:?}",
+          worker_id, building_type, base_index
+        );
+        return None;
+      };
+
+      println!(
+        "Worker {} found build location ({}, {}) for {:?}, setting target_position",
+        worker_id, tile_pos.x, tile_pos.y, building_type
+      );
+      assignment.target_position = Some((tile_pos.x, tile_pos.y));
+      None
+    }
+  }
+}
+
 fn enforce_building_assignment(
   game: &Game,
   worker: &Unit,
   assignment: &mut WorkerAssignment,
   build_order: &[BuildOrderItem],
+  base_locations: &[TilePosition],
 ) {
   let worker_order = worker.get_order();
+  let worker_id = worker.get_id();
 
   let Some(build_order_idx) = assignment.build_order_index else {
     println!(
       "Worker {} has building assignment but no build_order_index",
-      worker.get_id()
+      worker_id
     );
     return;
   };
@@ -241,23 +318,36 @@ fn enforce_building_assignment(
   let Some(building_item) = build_order.get(build_order_idx) else {
     println!(
       "Worker {} build_order_index {} is out of bounds (build_order length: {})",
-      worker.get_id(),
+      worker_id,
       build_order_idx,
       build_order.len()
     );
     return;
   };
 
-  let BuildOrderItem::Unit { unit_type: building_type, .. } = building_item else {
+  let BuildOrderItem::Unit {
+    unit_type: building_type,
+    base_index,
+  } = building_item
+  else {
     println!(
       "Worker {} build_order_index {} is not a unit (cannot build upgrades)",
-      worker.get_id(),
-      build_order_idx
+      worker_id, build_order_idx
     );
     return;
   };
 
-  if worker_order == Order::PlaceBuilding || worker_order == Order::ConstructingBuilding {
+  if worker_order == Order::PlaceBuilding
+    || worker_order == Order::ConstructingBuilding
+    || worker_order == Order::DroneBuild
+  {
+    game.draw_text_screen(
+      (0, 10),
+      &format!(
+        "Worker {} is already placing/constructing building",
+        worker_id
+      ),
+    );
     return;
   }
 
@@ -276,61 +366,117 @@ fn enforce_building_assignment(
       (0, 10),
       &format!(
         "Worker {} waiting to build {:?} Minerals: {}/{} Gas: {}/{}",
-        worker.get_id(),
-        building_type,
-        current_minerals,
-        required_minerals,
-        current_gas,
-        required_gas
+        worker_id, building_type, current_minerals, required_minerals, current_gas, required_gas
       ),
     );
     return;
   }
 
-  let pos = match assignment.target_position {
-    Some((x, y)) => TilePosition::new(x, y),
-    None => {
-      let Some(p) = build_location_utils::get_buildable_location(game, worker, *building_type)
-      else {
-        println!(
-          "Worker {} could not find valid build location for {:?}",
-          worker.get_id(),
-          building_type
-        );
-        return;
-      };
-      // reassign and try again next position
-      assignment.target_position = Some((p.x, p.y));
-      return;
-    }
+  let Some(pos) = get_or_find_build_position(
+    game,
+    worker,
+    assignment,
+    *building_type,
+    base_index,
+    base_locations,
+    worker_id,
+  ) else {
+    return;
   };
 
-  let build_successful = worker.build(*building_type, pos);
-  if let Err(e) = build_successful {
+
+  if let Err(can_build_err) = game.can_build_here(worker, pos, *building_type, true) {
+    game.draw_text_screen(
+      (0, 20),
+      &format!(
+        "Worker {} cannot build {:?} at ({}, {}): {:?}",
+        worker_id, building_type, pos.x, pos.y, can_build_err
+      ),
+    );
+    return;
+  }
+
+  // if !game.is_explored(pos) {
+  if !game.can_build_here(worker, pos, *building_type, true).unwrap_or(false) {
     game.draw_text_screen(
       (0, 10),
       &format!(
-        "Worker {} failed to build {:?} at ({}, {}), error: {:?} | Minerals: {}/{} Gas: {}/{}",
-        worker.get_id(),
-        building_type,
-        pos.x,
-        pos.y,
-        e,
-        current_minerals,
-        required_minerals,
-        current_gas,
-        required_gas
+        "Worker {} is exploring build position ({}, {}) for {:?}",
+        worker_id, pos.x, pos.y, building_type
       ),
     );
 
-    if e == Error::Invalid_Tile_Position {
+    if worker_order != Order::Move {
+      let target_position = Position::new((pos.x - 2) * 32, (pos.y + 3) * 32);
+      // explore somewhere above build position
+      // exactly on build position causes build to fail sometimes
+      if worker.move_(target_position).is_ok() {
+        println!(
+          "Worker {} moving to unexplored build position ({}, {}) for {:?}",
+          worker_id, pos.x, pos.y, building_type
+        );
+      }
+    }
+    return;
+  }
+
+  let build_successful = worker.build(*building_type, pos);
+  match build_successful {
+    Ok(true) => {
       println!(
-        "Worker {} got Invalid_Tile_Position, recalculating build location",
-        worker.get_id()
+        "Worker {} successfully issued build command for {:?} at ({}, {})",
+        worker_id, building_type, pos.x, pos.y
       );
-      assignment.target_position =
-        build_location_utils::get_buildable_location(game, worker, *building_type)
-          .map(|pos| (pos.x, pos.y));
+    }
+    Ok(false) => {
+      println!(
+        "Worker {} build command returned false for {:?} at ({}, {})",
+        worker_id, building_type, pos.x, pos.y
+      );
+
+      game.draw_text_screen(
+        (0, 10),
+        &format!(
+          "Worker {} build command returned false | Minerals: {}/{} Gas: {}/{}",
+          worker_id, current_minerals, required_minerals, current_gas, required_gas
+        ),
+      );
+    }
+    Err(e) => {
+      println!(
+        "Worker {} FAILED to build {:?} at ({}, {}), error: {:?}",
+        worker_id, building_type, pos.x, pos.y, e
+      );
+      game.draw_text_screen(
+        (0, 10),
+        &format!(
+          "Worker {} failed to build {:?} at ({}, {}), error: {:?} | Minerals: {}/{} Gas: {}/{}",
+          worker_id,
+          building_type,
+          pos.x,
+          pos.y,
+          e,
+          current_minerals,
+          required_minerals,
+          current_gas,
+          required_gas
+        ),
+      );
+
+      if e == Error::Invalid_Tile_Position {
+        println!(
+          "Worker {} got Invalid_Tile_Position, recalculating build location",
+          worker_id
+        );
+        assignment.target_position = build_location_utils::get_buildable_location(
+          game,
+          worker,
+          *building_type,
+          base_locations,
+          *base_index,
+        )
+        .map(|pos| (pos.x, pos.y));
+      }
     }
   }
 }

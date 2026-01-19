@@ -1,8 +1,26 @@
+use crate::utils::build_order_management;
 use crate::utils::build_orders::build_order_item::BuildOrderItem;
 use crate::utils::game_state::{BuildingAssignment, GameState};
 use rsbwapi::*;
 
-pub fn has_started_current_upgrade(game: &Game, game_state: &GameState) -> bool {
+pub fn check_and_advance_upgrade_if_started(game: &Game, game_state: &mut GameState) {
+  if has_started_current_upgrade(game, game_state) {
+    let upgrade_name = if let Some(BuildOrderItem::Upgrade(upgrade_type)) =
+      game_state.build_order.get(game_state.build_order_index)
+    {
+      format!("{:?}", upgrade_type)
+    } else {
+      "Unknown".to_string()
+    };
+    build_order_management::advance_build_order(
+      game,
+      game_state,
+      &format!("Upgrade {:} started", upgrade_name),
+    );
+  }
+}
+
+fn has_started_current_upgrade(game: &Game, game_state: &GameState) -> bool {
   // Check if the current build order item is an upgrade
   let Some(current_item) = game_state.build_order.get(game_state.build_order_index) else {
     return false;

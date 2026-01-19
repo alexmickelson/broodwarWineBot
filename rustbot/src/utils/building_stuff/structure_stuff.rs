@@ -147,14 +147,63 @@ fn assign_drone_to_build_building(
     return;
   };
 
-  let Some(build_location) = build_location_utils::get_buildable_location(game, &drone, unit_type)
-  else {
-    game.draw_text_screen((10, 10), "No valid build location found");
-    return;
+  let base_index = game_state
+    .build_order
+    .get(current_build_idx)
+    .and_then(|item| {
+      if let crate::utils::build_orders::build_order_item::BuildOrderItem::Unit { base_index, .. } = item {
+        *base_index
+      } else {
+        None
+      }
+    });
+
+  let build_position = if unit_type == UnitType::Zerg_Hatchery {
+    if let Some(idx) = base_index {
+      if let Some(base_tile) = game_state.base_locations.get(idx) {
+        (base_tile.x, base_tile.y)
+      } else {
+        println!(
+          "Base index {} out of bounds for hatchery (available bases: {})",
+          idx,
+          game_state.base_locations.len()
+        );
+        return;
+      }
+    } else {
+      let Some(build_location) = build_location_utils::get_buildable_location(
+        game,
+        &drone,
+        unit_type,
+        &game_state.base_locations,
+        base_index,
+      ) else {
+        println!(
+          "No valid build location found for {:?} at base_index {:?} (build_order_index {})",
+          unit_type, base_index, current_build_idx
+        );
+        return;
+      };
+      (build_location.x, build_location.y)
+    }
+  } else {
+    let Some(build_location) = build_location_utils::get_buildable_location(
+      game,
+      &drone,
+      unit_type,
+      &game_state.base_locations,
+      base_index,
+    ) else {
+      println!(
+        "No valid build location found for {:?} at base_index {:?} (build_order_index {})",
+        unit_type, base_index, current_build_idx
+      );
+      return;
+    };
+    (build_location.x, build_location.y)
   };
 
   let drone_id = drone.get_id();
-  let build_position = (build_location.x, build_location.y);
 
   game_state.worker_assignments.insert(
     drone_id,

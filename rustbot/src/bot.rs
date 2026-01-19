@@ -39,10 +39,24 @@ impl AiModule for RustBot {
     build_order_management::make_assignment_for_current_build_order_item(game, &mut game_state);
 
     game_state.base_locations =
-      expansion_location_stuff::get_base_locations_ordered(game, &mut game_state.debug_lines)
-        .into_iter()
-        .map(|tile| (tile.x, tile.y))
-        .collect();
+      expansion_location_stuff::get_base_locations_ordered(game, &mut game_state.debug_lines);
+
+    for location in &game_state.base_locations {
+      match game.can_build_here(None, *location, UnitType::Zerg_Hatchery, false) {
+        Ok(can_build) => {
+          println!(
+            "Can build Hatchery at base location ({}, {}): {}",
+            location.x, location.y, can_build
+          );
+        }
+        Err(e) => {
+          println!(
+            "Error checking buildability at base location ({}, {}): {:?}",
+            location.x, location.y, e
+          );
+        }
+      }
+    }
   }
 
   fn on_frame(&mut self, game: &Game) {
@@ -51,29 +65,16 @@ impl AiModule for RustBot {
       return;
     };
 
-    if researching_stuff::has_started_current_upgrade(game, &locked_state) {
-      let upgrade_name = if let Some(BuildOrderItem::Upgrade(upgrade_type)) =
-        locked_state.build_order.get(locked_state.build_order_index)
-      {
-        format!("{:?}", upgrade_type)
-      } else {
-        "Unknown".to_string()
-      };
-      build_order_management::advance_build_order(
-        game,
-        &mut locked_state,
-        &format!("Upgrade {:} started", upgrade_name),
-      );
-    }
+    researching_stuff::check_and_advance_upgrade_if_started(game, &mut locked_state);
 
     update_game_speed(game, &locked_state);
 
-    // build_order_management::build_order_enforce_assignments(game, &mut locked_state);
+    build_order_management::build_order_enforce_assignments(game, &mut locked_state);
 
-    // worker_management::update_assignments(game, &mut locked_state);
-    // worker_management::enforce_assignments(game, &mut locked_state);
+    worker_management::update_assignments(game, &mut locked_state);
+    worker_management::enforce_assignments(game, &mut locked_state);
 
-    // military_management::military_onframe(game, &mut locked_state);
+    military_management::military_onframe(game, &mut locked_state);
 
     draw_debug_lines(game, &locked_state);
 
@@ -84,15 +85,11 @@ impl AiModule for RustBot {
     }
   }
 
-  // new buildings -> on_unit_create
-  // evolving buildings for zerg -> on_unit_morph
-  // evolving larvae for zerg -> on_unit_morph
-  // upgrades -> need to figure out in on_frame
   fn on_unit_create(&mut self, game: &Game, unit: Unit) {
-    println!("unit created: {:?}", unit.get_type());
     if game.get_frame_count() < 1 {
       return;
     }
+    println!("unit created: {:?}", unit.get_type());
 
     let Ok(mut locked_state) = self.game_state.lock() else {
       return;
@@ -100,6 +97,7 @@ impl AiModule for RustBot {
 
     build_order_management::build_order_on_unit_started(game, &unit, &mut locked_state);
   }
+
   fn on_unit_morph(&mut self, game: &Game, unit: Unit) {
     println!(
       "unit {} started morphing: {:?} -> {:?}",
@@ -253,20 +251,18 @@ fn draw_debug_lines(game: &Game, game_state: &GameState) {
         worker_management::draw_worker_resource_lines(game, &game_state.worker_assignments.clone());
         worker_management::draw_worker_ids(game);
         worker_management::draw_building_ids(game);
-        
+
         // Draw base locations with numbers
-        for (index, &(tile_x, tile_y)) in game_state.base_locations.iter().enumerate() {
-          let pos = Position::new(tile_x * 32 + 16, tile_y * 32 + 16);
-          game.draw_circle_map(pos, 20, Color::Cyan, false);
+        for (index, tile_pos) in game_state.base_locations.iter().enumerate() {
+          let pos = Position::new(tile_pos.x * 32, tile_pos.y * 32);
+          game.draw_circle_map(pos, 3, Color::Cyan, false);
           game.draw_text_map(pos, &format!("Base {}", index));
         }
-
 
         // Draw all debug lines
         for (start, end, color) in &game_state.debug_lines {
           game.draw_line_map(*start, *end, *color);
         }
-
       }
       DebugFlag::ShowMilitaryAssignments => {
         military_management::draw_military_assignments(game, &game_state);

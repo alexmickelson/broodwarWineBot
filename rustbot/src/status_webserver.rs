@@ -357,8 +357,34 @@ async fn military_assignments_handler(
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[serde(tag = "type", rename_all = "PascalCase")]
+pub enum BuildOrderItemDTO {
+  Unit {
+    unit_type: String,
+    base_index: Option<usize>,
+  },
+  Upgrade {
+    upgrade_type: String,
+  },
+}
+
+impl From<&BuildOrderItem> for BuildOrderItemDTO {
+  fn from(item: &BuildOrderItem) -> Self {
+    match item {
+      BuildOrderItem::Unit { unit_type, base_index } => BuildOrderItemDTO::Unit {
+        unit_type: format!("{:?}", unit_type),
+        base_index: *base_index,
+      },
+      BuildOrderItem::Upgrade(upgrade_type) => BuildOrderItemDTO::Upgrade {
+        upgrade_type: format!("{:?}", upgrade_type),
+      },
+    }
+  }
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct BuildOrderSnapshot {
-  pub build_order: Vec<String>,
+  pub build_order: Vec<BuildOrderItemDTO>,
   pub build_order_index: usize,
   pub frame_count: i32,
 }
@@ -374,7 +400,7 @@ async fn build_order_handler(
         build_order: state
           .build_order
           .iter()
-          .map(|ut| format!("{:?}", ut))
+          .map(|item| BuildOrderItemDTO::from(item))
           .collect(),
         build_order_index: state.build_order_index,
         frame_count: _game.get_frame_count(),

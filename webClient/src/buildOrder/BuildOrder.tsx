@@ -2,7 +2,21 @@ import React, { useRef, useEffect } from 'react';
 import { useBuildOrder } from "./buildOrderHooks";
 import { LoadingState } from "../components/LoadingState";
 import { EmptyState } from "../components/EmptyState";
-import type { BuildOrderSnapshot } from "./buildOrderService";
+import type { BuildOrderSnapshot, BuildOrderItem } from "./buildOrderService";
+
+function getItemDisplayName(item: BuildOrderItem): string {
+  if (item.type === 'Unit') {
+    const name = item.unit_type.replace(/^(Terran|Protoss|Zerg)_/, "");
+    return item.base_index !== null ? `${name} @base${item.base_index}` : name;
+  } else if (item.type === 'Upgrade') {
+    return item.upgrade_type.replace(/^(Terran|Protoss|Zerg)_/, "");
+  }
+  return "Unknown";
+}
+
+function getItemType(item: BuildOrderItem): string {
+  return item.type === 'Unit' ? 'Unit' : 'Upgrade';
+}
 
 export const BuildOrder: React.FC = () => {
   const { data, isLoading, error } = useBuildOrder();
@@ -43,11 +57,12 @@ export const BuildOrder: React.FC = () => {
       
       {!isLoading && !error && buildOrderData?.build_order && buildOrderData.build_order.length > 0 && (
         <div className="flex flex-col gap-2 overflow-y-auto p-2">
-          {buildOrderData.build_order.map((unit, index) => {
+          {buildOrderData.build_order.map((item, index) => {
             const isComplete = index < buildOrderData.build_order_index;
             const isCurrent = index === buildOrderData.build_order_index;
 
-            const displayName = unit.replace(/^(Terran|Protoss|Zerg)_/, "");
+            const displayName = getItemDisplayName(item);
+            const itemType = getItemType(item);
 
             return (
               <div
@@ -61,22 +76,27 @@ export const BuildOrder: React.FC = () => {
                     : "bg-void-950 border-plasma-800"
                 }`}
               >
-                <span className={`font-bold min-w-8 ${
-                  isComplete ? "text-slate-600" : "text-slate-400"
+                <span className={`font-bold min-w-4 ${
+                  isComplete ? "text-slate-600" : "text-slate-600"
                 }`}>
                   {index + 1}
                 </span>
-                <span
-                  className={`font-medium truncate ${
-                    isCurrent 
-                      ? "text-plasma-500" 
-                      : isComplete
-                      ? "text-slate-600 line-through"
-                      : "text-lavender-400"
-                  }`}
-                >
-                  {displayName}
-                </span>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span
+                    className={`font-medium truncate ${
+                      isCurrent 
+                        ? "text-plasma-500" 
+                        : isComplete
+                        ? "text-slate-600 line-through"
+                        : "text-lavender-400"
+                    }`}
+                  >
+                    {displayName}
+                  </span>
+                  {itemType === 'Upgrade' && (
+                    <span className="text-xs text-slate-500">Upgrade</span>
+                  )}
+                </div>
                 {isComplete && (
                   <span className="ml-auto text-green-500 text-sm">✓</span>
                 )}

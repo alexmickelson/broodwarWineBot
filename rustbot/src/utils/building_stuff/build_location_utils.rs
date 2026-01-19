@@ -4,13 +4,17 @@ pub fn get_buildable_location(
   game: &Game,
   builder: &Unit,
   unit_type: UnitType,
+  base_locations: &[TilePosition],
+  base_index: Option<usize>,
 ) -> Option<TilePosition> {
   if is_extractor_type(unit_type) {
-    return find_extractor_location(game, builder, unit_type);
+    return find_extractor_location(game, builder, unit_type, base_locations, base_index);
   }
 
   let player = game.self_()?;
-  let builder_pos = builder.get_position();
+  let base_index = base_index.unwrap_or(0);
+  let base_tile = base_locations.get(base_index)?;
+  let search_center_pos = Position::new(base_tile.x * 32, base_tile.y * 32);
   let search_radius = 15;
 
   let resource_depots = collect_resource_depots(&player);
@@ -21,7 +25,7 @@ pub fn get_buildable_location(
     game,
     builder,
     unit_type,
-    builder_pos,
+    search_center_pos,
     search_radius,
     &resource_depots,
     &all_minerals,
@@ -52,7 +56,7 @@ fn find_all_buildable_tiles(
   game: &Game,
   builder: &Unit,
   unit_type: UnitType,
-  builder_pos: Position,
+  search_center_pos: Position,
   search_radius: i32,
   resource_depots: &[Unit],
   all_minerals: &[Unit],
@@ -63,8 +67,8 @@ fn find_all_buildable_tiles(
   for dy in -search_radius..=search_radius {
     for dx in -search_radius..=search_radius {
       let tile_pos = TilePosition {
-        x: builder_pos.x / 32 + dx,
-        y: builder_pos.y / 32 + dy,
+        x: search_center_pos.x / 32 + dx,
+        y: search_center_pos.y / 32 + dy,
       };
 
       if !is_tile_buildable(game, builder, tile_pos, unit_type) {
@@ -225,6 +229,8 @@ pub fn find_extractor_location(
   game: &Game,
   builder: &Unit,
   building_type: UnitType,
+  base_locations: &[TilePosition],
+  base_index: Option<usize>,
 ) -> Option<TilePosition> {
   let Some(player) = game.self_() else {
     println!("No player found for extractor location");
@@ -234,14 +240,22 @@ pub fn find_extractor_location(
   let all_geysers = game.get_static_geysers();
 
   println!(
-    "Looking for extractor location, total geysers: {}",
+    "Looking for extractor location at base {:?}, total geysers: {}",
+    base_index,
     all_geysers.len()
   );
 
   // Find the closest geyser that:
-  // 1. Is reasonably close to our base
+  // 1. Is reasonably close to the specified base (or any base if None)
   // 2. Doesn't already have an extractor on it
   // 3. Can be built on
+  
+  let target_base_pos = if let Some(idx) = base_index {
+    base_locations.get(idx).map(|tile| Position::new(tile.x * 32 + 16, tile.y * 32 + 16))
+  } else {
+    None
+  };
+
   let player_units = player.get_units();
   let resource_depots: Vec<_> = player_units
     .iter()
@@ -258,10 +272,19 @@ pub fn find_extractor_location(
   let nearby_geysers: Vec<_> = all_geysers
     .iter()
     .filter(|geyser| {
-      // Check if geyser is near any of our bases
+      let geyser_pos = geyser.get_position();
+      
+      // If a specific base is requested, only check that base
+      if let Some(base_pos) = target_base_pos {
+        let dx = (base_pos.x - geyser_pos.x) as f32;
+        let dy = (base_pos.y - geyser_pos.y) as f32;
+        let distance = (dx * dx + dy * dy).sqrt();
+        return distance <= 12.0 * 32.0;
+      }
+      
+      // Otherwise check if geyser is near any of our bases
       resource_depots.iter().any(|depot| {
         let depot_pos = depot.get_position();
-        let geyser_pos = geyser.get_position();
         let dx = (depot_pos.x - geyser_pos.x) as f32;
         let dy = (depot_pos.y - geyser_pos.y) as f32;
         let distance = (dx * dx + dy * dy).sqrt();
@@ -270,7 +293,7 @@ pub fn find_extractor_location(
     })
     .collect();
 
-  println!("Found {} geysers near bases", nearby_geysers.len());
+  println!("Found {} geysers near target base", nearby_geysers.len());
 
   nearby_geysers.iter().find_map(|geyser| {
     // Check if we can build on this geyser
