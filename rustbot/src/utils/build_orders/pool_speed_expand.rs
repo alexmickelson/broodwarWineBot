@@ -1,11 +1,17 @@
 use rsbwapi::*;
 
 use crate::utils::build_orders::build_order_item::BuildOrderItem;
+use crate::utils::military::squad_models;
 
 pub fn build_order() -> Vec<BuildOrderItem> {
   vec![
     // Opening
     BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::squad(
+      "Rush Workers".to_string(),
+      squad_models::SquadRole::AttackWorkers,
+      squad_models::SquadStatus::Gathering
+    ),
     BuildOrderItem::unit(UnitType::Zerg_Drone),
     BuildOrderItem::unit(UnitType::Zerg_Drone),
     BuildOrderItem::unit(UnitType::Zerg_Drone),
@@ -18,10 +24,15 @@ pub fn build_order() -> Vec<BuildOrderItem> {
     BuildOrderItem::unit(UnitType::Zerg_Zergling),
     BuildOrderItem::unit(UnitType::Zerg_Zergling),
     BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::squad(
+      "Defend Base".to_string(),
+      squad_models::SquadRole::Defend,
+      squad_models::SquadStatus::Gathering
+    ),
     BuildOrderItem::unit_at_base(UnitType::Zerg_Hatchery, 1), // Natural expansion
     BuildOrderItem::unit(UnitType::Zerg_Hatchery),
     BuildOrderItem::unit_at_base(UnitType::Zerg_Extractor, 0),
-    BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
     // Economy and upgrades
     BuildOrderItem::unit(UnitType::Zerg_Drone),
     BuildOrderItem::unit(UnitType::Zerg_Drone),

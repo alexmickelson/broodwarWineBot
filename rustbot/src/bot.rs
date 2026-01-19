@@ -29,12 +29,6 @@ impl AiModule for RustBot {
 
     game_state.build_order = pool_speed_expand::build_order();
 
-    let Some(initial_squad) = military_management::create_initial_squad(game) else {
-      return;
-    };
-
-    game_state.military_squads.push(initial_squad);
-
     println!("Making initial build order assignment");
     build_order_management::make_assignment_for_current_build_order_item(game, &mut game_state);
 
@@ -276,9 +270,7 @@ fn draw_debug_lines(game: &Game, game_state: &GameState) {
         military_management::draw_military_assignments(game, &game_state);
       }
       DebugFlag::ShowPathToEnemyBase => {
-        if let Some(path) = game_state.path_to_enemy_base.as_ref() {
-          pathing::draw_path(game, path);
-        }
+    
       }
       DebugFlag::ShowRegions => {
         region_stuff::draw_region_boxes(game);

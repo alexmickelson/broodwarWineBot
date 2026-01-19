@@ -18,7 +18,6 @@ pub enum BuildOrderItem {
 }
 
 impl BuildOrderItem {
-  /// Create a Unit build order item without a specific base location
   pub fn unit(unit_type: UnitType) -> Self {
     BuildOrderItem::Unit {
       unit_type,
@@ -26,8 +25,6 @@ impl BuildOrderItem {
     }
   }
 
-  /// Create a Unit build order item at a specific base location
-  /// base_index 0 = starting location, 1 = natural expansion, etc.
   pub fn unit_at_base(unit_type: UnitType, base_index: usize) -> Self {
     BuildOrderItem::Unit {
       unit_type,
@@ -35,7 +32,6 @@ impl BuildOrderItem {
     }
   }
 
-  /// Create a Squad build order item
   pub fn squad(name: String, role: squad_models::SquadRole, status: squad_models::SquadStatus) -> Self {
     BuildOrderItem::Squad { name, role, status }
   }

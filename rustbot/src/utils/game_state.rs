@@ -16,7 +16,6 @@ pub struct GameState {
   pub build_order_index: usize,
   pub larva_responsibilities: HashMap<usize, usize>,
   pub military_squads: Vec<MilitarySquad>,
-  pub path_to_enemy_base: Option<Vec<(i32, i32)>>,
   pub debug_flags: HashSet<DebugFlag>,
 }
 
@@ -33,7 +32,6 @@ impl Default for GameState {
       build_order_index: 0,
       larva_responsibilities: HashMap::new(),
       military_squads: vec![],
-      path_to_enemy_base: None,
       debug_flags: [
         DebugFlag::ShowWorkerAssignments,
         DebugFlag::ShowMilitaryAssignments,

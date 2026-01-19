@@ -1,4 +1,84 @@
+use crate::utils::{
+  map_utils::pathing,
+  military::squad_models::{MilitarySquad, SquadRole, SquadStatus},
+};
 use rsbwapi::*;
+
+pub fn create_initial_attack_workers_squad(game: &Game, self_player: &Player) -> MilitarySquad {
+  let start_locations: Vec<ScaledPosition<32>> = game.get_start_locations();
+  let Some(my_starting_position) = start_locations.get(self_player.get_id() as usize) else {
+    return MilitarySquad {
+      name: "Main Squad".to_string(),
+      role: SquadRole::AttackWorkers,
+      status: SquadStatus::Gathering,
+      assigned_unit_ids: std::collections::HashSet::new(),
+      target_position: None,
+      target_path: None,
+      target_path_index: None,
+    };
+  };
+
+  let Some(enemy_location) = start_locations
+    .iter()
+    .find(|&loc| loc != my_starting_position)
+  else {
+    return MilitarySquad {
+      name: "Main Squad".to_string(),
+      role: SquadRole::AttackWorkers,
+      status: SquadStatus::Gathering,
+      assigned_unit_ids: std::collections::HashSet::new(),
+      target_position: None,
+      target_path: None,
+      target_path_index: None,
+    };
+  };
+
+  let average_position_of_minerals_near_enemy_location = {
+    let mut sum_x = 0;
+    let mut sum_y = 0;
+    let mut count = 0;
+
+    for unit in game.get_static_minerals() {
+      let unit_pos = unit.get_position();
+      let dist_x = (unit_pos.x - enemy_location.x * 32).abs();
+      let dist_y = (unit_pos.y - enemy_location.y * 32).abs();
+      if dist_x <= 300 && dist_y <= 300 {
+        sum_x += unit_pos.x;
+        sum_y += unit_pos.y;
+        count += 1;
+      }
+    }
+
+    if count > 0 {
+      (sum_x / count, sum_y / count)
+    } else {
+      (enemy_location.x * 32, enemy_location.y * 32)
+    }
+  };
+
+  let my_pos = (my_starting_position.x * 32, my_starting_position.y * 32);
+  let enemy_pos = average_position_of_minerals_near_enemy_location;
+
+  let path_to_enemy = pathing::get_path_between_points(game, my_pos, enemy_pos);
+
+  let goal = if let Some(ref path) = path_to_enemy {
+    // path.len() / 5
+    path.len() / 2
+  } else {
+    println!("No path to enemy found when creating initial squad");
+    0
+  };
+
+  MilitarySquad {
+    name: "Main Squad".to_string(),
+    role: SquadRole::AttackWorkers,
+    status: SquadStatus::Gathering,
+    assigned_unit_ids: std::collections::HashSet::new(),
+    target_position: None,
+    target_path: path_to_enemy,
+    target_path_index: Some(goal),
+  }
+}
 
 #[derive(Debug, Clone, Copy)]
 struct ThreatAvoidanceWeights {

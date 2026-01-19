@@ -1,6 +1,7 @@
 use crate::utils::build_orders::build_order_item::BuildOrderItem;
 use crate::utils::building_stuff::{creature_stuff, researching_stuff, structure_stuff};
 use crate::utils::game_state::GameState;
+use crate::utils::military::military_management;
 use rsbwapi::*;
 
 /// Advances the build order to the next item and logs the reason
@@ -78,21 +79,17 @@ pub fn make_assignment_for_current_build_order_item(game: &Game, game_state: &mu
       researching_stuff::assign_building_to_research_upgrade(game, game_state, &player, upgrade);
     }
     BuildOrderItem::Squad { name, role, status } => {
-      let new_squad = crate::utils::military::squad_models::MilitarySquad {
-        name: name.clone(),
-        role,
-        status,
-        assigned_unit_ids: std::collections::HashSet::new(),
-        target_position: None,
-        target_path: None,
-        target_path_index: None,
+      let Some(self_player) = game.self_() else {
+        println!("Failed to get self player in make_assignment_for_current_build_order_item when creating squad");
+        return;
       };
+
+      let new_squad = military_management::create_squad(game, &name, role, status, &self_player);
       game_state.military_squads.push(new_squad);
       advance_build_order(game, game_state, &format!("Squad {} created", name));
     }
   }
 }
-
 
 pub fn build_order_enforce_assignments(game: &Game, game_state: &mut GameState) {
   let Some(player) = game.self_() else {
