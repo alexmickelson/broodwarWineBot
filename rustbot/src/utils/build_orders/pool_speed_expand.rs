@@ -2,58 +2,51 @@ use rsbwapi::*;
 
 use crate::utils::build_orders::build_order_item::BuildOrderItem;
 
-/// 12 Pool Speed Expand into Hydralisk Transition
-/// Standard Zerg opening with early economy expansion, transitioning to hydra tech
 pub fn build_order() -> Vec<BuildOrderItem> {
-  use BuildOrderItem::*;
-
   vec![
     // Opening - 12 Pool
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Overlord),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Spawning_Pool),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Drone),
-    
-    // Fast expand
-    Unit(UnitType::Zerg_Hatchery),
-    Unit(UnitType::Zerg_Zergling),
-    Unit(UnitType::Zerg_Zergling),
-    Unit(UnitType::Zerg_Zergling),
-    Unit(UnitType::Zerg_Hatchery),
-    Unit(UnitType::Zerg_Extractor),
-    Unit(UnitType::Zerg_Zergling),
-
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Overlord),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Spawning_Pool),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    // Create units to attack
+    BuildOrderItem::unit_at_base(UnitType::Zerg_Hatchery, 1), // Natural expansion
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::unit(UnitType::Zerg_Hatchery),
+    BuildOrderItem::unit_at_base(UnitType::Zerg_Extractor, 0),
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
     // Economy and upgrades
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Evolution_Chamber),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Drone),
-    Upgrade(UpgradeType::Metabolic_Boost),
-    Unit(UnitType::Zerg_Overlord),
-    Unit(UnitType::Zerg_Creep_Colony),
-    Unit(UnitType::Zerg_Zergling),
-    Unit(UnitType::Zerg_Zergling),
-    Unit(UnitType::Zerg_Zergling),
-    Unit(UnitType::Zerg_Zergling),
-
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Evolution_Chamber),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::Upgrade(UpgradeType::Metabolic_Boost),
+    BuildOrderItem::unit(UnitType::Zerg_Overlord),
+    BuildOrderItem::unit(UnitType::Zerg_Creep_Colony),
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
     // Lair tech
-    Unit(UnitType::Zerg_Lair),
-    Unit(UnitType::Zerg_Hatchery),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Overlord),
-    Unit(UnitType::Zerg_Zergling),
-    Unit(UnitType::Zerg_Zergling),
-    Unit(UnitType::Zerg_Zergling),
-    Unit(UnitType::Zerg_Hatchery),
-    Unit(UnitType::Zerg_Drone),
-    Unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Lair),
+    BuildOrderItem::unit(UnitType::Zerg_Hatchery),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Overlord),
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::unit(UnitType::Zerg_Zergling),
+    BuildOrderItem::unit(UnitType::Zerg_Hatchery),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
+    BuildOrderItem::unit(UnitType::Zerg_Drone),
   ]
 }

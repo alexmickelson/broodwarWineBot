@@ -3,8 +3,21 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuildOrderItem {
-  Unit(UnitType),
+  Unit { unit_type: UnitType, base_index: Option<usize> },
   Upgrade(UpgradeType),
+}
+
+impl BuildOrderItem {
+  /// Create a Unit build order item without a specific base location
+  pub fn unit(unit_type: UnitType) -> Self {
+    BuildOrderItem::Unit { unit_type, base_index: None }
+  }
+
+  /// Create a Unit build order item at a specific base location
+  /// base_index 0 = starting location, 1 = natural expansion, etc.
+  pub fn unit_at_base(unit_type: UnitType, base_index: usize) -> Self {
+    BuildOrderItem::Unit { unit_type, base_index: Some(base_index) }
+  }
 }
 
 impl Serialize for BuildOrderItem {
@@ -13,7 +26,13 @@ impl Serialize for BuildOrderItem {
     S: serde::Serializer,
   {
     match self {
-      BuildOrderItem::Unit(unit_type) => serializer.serialize_str(&format!("{:?}", unit_type)),
+      BuildOrderItem::Unit { unit_type, base_index } => {
+        let base_str = match base_index {
+          Some(idx) => format!(" @base{}", idx),
+          None => String::new(),
+        };
+        serializer.serialize_str(&format!("{:?}{}", unit_type, base_str))
+      }
       BuildOrderItem::Upgrade(upgrade_type) => {
         serializer.serialize_str(&format!("{:?}", upgrade_type))
       }
@@ -27,6 +46,6 @@ impl<'de> Deserialize<'de> for BuildOrderItem {
     D: serde::Deserializer<'de>,
   {
     // For now, just return a default value as we don't need to deserialize
-    Ok(BuildOrderItem::Unit(UnitType::None))
+    Ok(BuildOrderItem::Unit { unit_type: UnitType::None, base_index: None })
   }
 }

@@ -1,7 +1,7 @@
 use crate::utils::build_order_management;
 use crate::utils::build_orders::build_order_item::BuildOrderItem;
 use crate::utils::build_orders::pool_speed_expand;
-use crate::utils::building_stuff::{creature_stuff, researching_stuff};
+use crate::utils::building_stuff::{creature_stuff, expansion_location_stuff, researching_stuff};
 use crate::utils::game_state::{DebugFlag, GameState, SharedGameState};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use crate::utils::map_utils::{pathing, region_stuff};
@@ -37,6 +37,12 @@ impl AiModule for RustBot {
 
     println!("Making initial build order assignment");
     build_order_management::make_assignment_for_current_build_order_item(game, &mut game_state);
+
+    game_state.base_locations =
+      expansion_location_stuff::get_base_locations_ordered(game, &mut game_state.debug_lines)
+        .into_iter()
+        .map(|tile| (tile.x, tile.y))
+        .collect();
   }
 
   fn on_frame(&mut self, game: &Game) {
@@ -46,27 +52,28 @@ impl AiModule for RustBot {
     };
 
     if researching_stuff::has_started_current_upgrade(game, &locked_state) {
-      let upgrade_name = if let Some(BuildOrderItem::Upgrade(upgrade_type)) = 
-        locked_state.build_order.get(locked_state.build_order_index) {
+      let upgrade_name = if let Some(BuildOrderItem::Upgrade(upgrade_type)) =
+        locked_state.build_order.get(locked_state.build_order_index)
+      {
         format!("{:?}", upgrade_type)
       } else {
         "Unknown".to_string()
       };
       build_order_management::advance_build_order(
-        game, 
-        &mut locked_state, 
-        &format!("Upgrade {:} started", upgrade_name)
+        game,
+        &mut locked_state,
+        &format!("Upgrade {:} started", upgrade_name),
       );
     }
 
     update_game_speed(game, &locked_state);
 
-    build_order_management::build_order_enforce_assignments(game, &mut locked_state);
+    // build_order_management::build_order_enforce_assignments(game, &mut locked_state);
 
-    worker_management::update_assignments(game, &mut locked_state);
-    worker_management::enforce_assignments(game, &mut locked_state);
+    // worker_management::update_assignments(game, &mut locked_state);
+    // worker_management::enforce_assignments(game, &mut locked_state);
 
-    military_management::military_onframe(game, &mut locked_state);
+    // military_management::military_onframe(game, &mut locked_state);
 
     draw_debug_lines(game, &locked_state);
 
@@ -108,19 +115,21 @@ impl AiModule for RustBot {
       creature_stuff::remove_larva_responsibility(&mut locked_state, &unit);
 
       // Check if this morph matches the current build order item
-      let should_advance = if let Some(current_item) =
-        locked_state.build_order.get(locked_state.build_order_index)
-      {
-        match current_item {
-          BuildOrderItem::Unit(expected_unit_type) => unit.get_build_type() == *expected_unit_type,
-          BuildOrderItem::Upgrade(_) => {
-            // Don't advance on unit morphs if waiting for an upgrade
-            false
+      let should_advance =
+        if let Some(current_item) = locked_state.build_order.get(locked_state.build_order_index) {
+          match current_item {
+            BuildOrderItem::Unit {
+              unit_type: expected_unit_type,
+              ..
+            } => unit.get_build_type() == *expected_unit_type,
+            BuildOrderItem::Upgrade(_) => {
+              // Don't advance on unit morphs if waiting for an upgrade
+              false
+            }
           }
-        }
-      } else {
-        false
-      };
+        } else {
+          false
+        };
 
       if should_advance {
         build_order_management::advance_build_order(
@@ -148,7 +157,10 @@ impl AiModule for RustBot {
       let should_advance =
         if let Some(current_item) = locked_state.build_order.get(locked_state.build_order_index) {
           match current_item {
-            BuildOrderItem::Unit(expected_unit_type) => unit.get_type() == *expected_unit_type,
+            BuildOrderItem::Unit {
+              unit_type: expected_unit_type,
+              ..
+            } => unit.get_type() == *expected_unit_type,
             BuildOrderItem::Upgrade(_) => {
               // Don't advance on building construction if waiting for an upgrade
               false
@@ -186,7 +198,8 @@ impl AiModule for RustBot {
     };
 
     // Only assign our own units to squads, not enemy units
-    if unit.get_player().get_id() == player.get_id() && military_management::is_military_unit(&unit) {
+    if unit.get_player().get_id() == player.get_id() && military_management::is_military_unit(&unit)
+    {
       military_management::assign_unit_to_squad(&game, &unit, &mut self.game_state.lock().unwrap());
     }
   }
@@ -222,19 +235,38 @@ fn update_game_speed(game: &Game, game_state: &GameState) {
   unsafe {
     let game_ptr = game as *const Game as *mut Game;
     (*game_ptr).set_local_speed(speed);
-    
+
     let frame_skip_value = if speed == 0 { 15 } else { 0 };
     (*game_ptr).set_frame_skip(frame_skip_value);
   }
 }
 
 fn draw_debug_lines(game: &Game, game_state: &GameState) {
+  // Draw all debug lines from game_state
+  for (start, end, color) in &game_state.debug_lines {
+    game.draw_line_map(*start, *end, *color);
+  }
+
   for flag in &game_state.debug_flags {
     match flag {
       DebugFlag::ShowWorkerAssignments => {
         worker_management::draw_worker_resource_lines(game, &game_state.worker_assignments.clone());
         worker_management::draw_worker_ids(game);
         worker_management::draw_building_ids(game);
+        
+        // Draw base locations with numbers
+        for (index, &(tile_x, tile_y)) in game_state.base_locations.iter().enumerate() {
+          let pos = Position::new(tile_x * 32 + 16, tile_y * 32 + 16);
+          game.draw_circle_map(pos, 20, Color::Cyan, false);
+          game.draw_text_map(pos, &format!("Base {}", index));
+        }
+
+
+        // Draw all debug lines
+        for (start, end, color) in &game_state.debug_lines {
+          game.draw_line_map(*start, *end, *color);
+        }
+
       }
       DebugFlag::ShowMilitaryAssignments => {
         military_management::draw_military_assignments(game, &game_state);

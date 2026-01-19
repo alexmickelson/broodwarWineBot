@@ -6,6 +6,7 @@ pub mod worker_management;
 pub mod building_stuff {
   pub mod build_location_utils;
   pub mod creature_stuff;
+  pub mod expansion_location_stuff;
   pub mod researching_stuff;
   pub mod structure_stuff;
 }

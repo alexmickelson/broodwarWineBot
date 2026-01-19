@@ -41,7 +41,7 @@ pub fn build_order_on_unit_started(game: &Game, completed_unit: &Unit, game_stat
   };
 
   match current_build_order_item {
-    BuildOrderItem::Unit(unit_type) => {
+    BuildOrderItem::Unit { unit_type, .. } => {
       if completed_unit.get_type() == unit_type {
         advance_build_order(game, game_state, &format!("Unit {:?} created", unit_type));
       }
@@ -63,7 +63,7 @@ pub fn make_assignment_for_current_build_order_item(game: &Game, game_state: &mu
   let thing_to_build = game_state.build_order[game_state.build_order_index].clone();
 
   match thing_to_build {
-    BuildOrderItem::Unit(unit_to_build) => {
+    BuildOrderItem::Unit { unit_type: unit_to_build, .. } => {
       if unit_to_build.is_building() {
         structure_stuff::make_building_assignment(game, game_state, unit_to_build);
       } else {
@@ -89,7 +89,7 @@ pub fn build_order_enforce_assignments(game: &Game, game_state: &mut GameState) 
   let thing_to_build = game_state.build_order[game_state.build_order_index].clone();
 
   match thing_to_build {
-    BuildOrderItem::Unit(unit_type) => {
+    BuildOrderItem::Unit { unit_type, .. } => {
       if unit_type.is_building() {
         // verify drone or building
       } else {
@@ -130,7 +130,7 @@ fn enforce_larvae_assignment(game: &Game, game_state: &mut GameState) {
   };
 
   let type_to_morph = match game_state.build_order[game_state.build_order_index] {
-    BuildOrderItem::Unit(unit_type) => unit_type,
+    BuildOrderItem::Unit { unit_type, .. } => unit_type,
     _ => {
       println!("Expected unit to build in build_order_on_frame, found upgrade instead");
       return;

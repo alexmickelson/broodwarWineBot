@@ -248,7 +248,7 @@ fn enforce_building_assignment(
     return;
   };
 
-  let BuildOrderItem::Unit(building_type) = building_item else {
+  let BuildOrderItem::Unit { unit_type: building_type, .. } = building_item else {
     println!(
       "Worker {} build_order_index {} is not a unit (cannot build upgrades)",
       worker.get_id(),

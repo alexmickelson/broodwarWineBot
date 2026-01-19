@@ -218,7 +218,12 @@ async fn larvae_handler(
       for (larva_id, build_order_idx) in &state.larva_responsibilities {
         if let Some(item) = state.build_order.get(*build_order_idx) {
           let detail = match item {
-            BuildOrderItem::Unit(unit_type) => format!("{:?}", unit_type),
+            BuildOrderItem::Unit { unit_type, base_index } => {
+              match base_index {
+                Some(idx) => format!("{:?} @base{}", unit_type, idx),
+                None => format!("{:?}", unit_type),
+              }
+            }
             BuildOrderItem::Upgrade(upgrade_type) => {
               format!("{:?}", upgrade_type)
             }

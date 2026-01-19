@@ -101,7 +101,8 @@ fn score_build_location(
   let mut score = 0;
 
   score += score_depot_relationships(tile_center_pos, resource_depots, all_minerals, all_geysers);
-  score += penalize_depot_resource_paths(tile_center_pos, resource_depots, all_minerals, all_geysers);
+  score +=
+    penalize_depot_resource_paths(tile_center_pos, resource_depots, all_minerals, all_geysers);
 
   score
 }

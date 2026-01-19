@@ -9,6 +9,8 @@ use crate::utils::military::squad_models::MilitarySquad;
 pub struct GameState {
   pub worker_assignments: HashMap<usize, WorkerAssignment>,
   pub building_assignments: HashMap<usize, BuildingAssignment>,
+  pub base_locations: Vec<(i32, i32)>,
+  pub debug_lines: Vec<(Position, Position, Color)>,
   pub game_speed: i32,
   pub build_order: Vec<BuildOrderItem>,
   pub build_order_index: usize,
@@ -23,6 +25,8 @@ impl Default for GameState {
     Self {
       worker_assignments: HashMap::new(),
       building_assignments: HashMap::new(),
+      base_locations: vec![],
+      debug_lines: vec![],
       game_speed: -1,
       build_order: vec![],
       build_order_index: 0,
