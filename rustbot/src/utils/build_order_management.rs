@@ -9,9 +9,7 @@ pub fn advance_build_order(game: &Game, game_state: &mut GameState, reason: &str
   game_state.build_order_index += 1;
   println!(
     "[BUILD ORDER] {:?} -> {:?} | {}",
-    game_state.build_order_index,
-    old_index,
-    reason
+    old_index, game_state.build_order_index, reason
   );
   make_assignment_for_current_build_order_item(game, game_state);
 }
@@ -47,6 +45,9 @@ pub fn build_order_on_unit_started(game: &Game, completed_unit: &Unit, game_stat
       }
     }
     BuildOrderItem::Upgrade(_) => {}
+    BuildOrderItem::Squad { .. } => {
+      // Squads are created manually, not through unit creation
+    }
   }
 }
 
@@ -63,7 +64,10 @@ pub fn make_assignment_for_current_build_order_item(game: &Game, game_state: &mu
   let thing_to_build = game_state.build_order[game_state.build_order_index].clone();
 
   match thing_to_build {
-    BuildOrderItem::Unit { unit_type: unit_to_build, .. } => {
+    BuildOrderItem::Unit {
+      unit_type: unit_to_build,
+      ..
+    } => {
       if unit_to_build.is_building() {
         structure_stuff::make_building_assignment(game, game_state, unit_to_build);
       } else {
@@ -73,8 +77,22 @@ pub fn make_assignment_for_current_build_order_item(game: &Game, game_state: &mu
     BuildOrderItem::Upgrade(upgrade) => {
       researching_stuff::assign_building_to_research_upgrade(game, game_state, &player, upgrade);
     }
+    BuildOrderItem::Squad { name, role, status } => {
+      let new_squad = crate::utils::military::squad_models::MilitarySquad {
+        name: name.clone(),
+        role,
+        status,
+        assigned_unit_ids: std::collections::HashSet::new(),
+        target_position: None,
+        target_path: None,
+        target_path_index: None,
+      };
+      game_state.military_squads.push(new_squad);
+      advance_build_order(game, game_state, &format!("Squad {} created", name));
+    }
   }
 }
+
 
 pub fn build_order_enforce_assignments(game: &Game, game_state: &mut GameState) {
   let Some(player) = game.self_() else {
@@ -91,13 +109,16 @@ pub fn build_order_enforce_assignments(game: &Game, game_state: &mut GameState) 
   match thing_to_build {
     BuildOrderItem::Unit { unit_type, .. } => {
       if unit_type.is_building() {
-        // verify drone or building
+        structure_stuff::enforce_structure_assignment(game, game_state);
       } else {
         enforce_larvae_assignment(game, game_state);
       }
     }
     BuildOrderItem::Upgrade(upgrade_type) => {
       researching_stuff::enforce_research_assignment(game, game_state, &player, upgrade_type);
+    }
+    BuildOrderItem::Squad { .. } => {
+      // Squads are created immediately when assigned, nothing to enforce
     }
   }
 }
@@ -121,9 +142,13 @@ fn enforce_larvae_assignment(game: &Game, game_state: &mut GameState) {
       });
 
   let Some(larvae) = larvae_assigned_for_current_index else {
-    println!(
-      "No larvae for current build order index {}, trying to assign",
-      game_state.build_order_index
+    game.draw_text_screen(
+      (0, 30),
+      format!(
+        "No larvae for current build order index {}, trying to assign",
+        game_state.build_order_index
+      )
+      .as_str(),
     );
     make_assignment_for_current_build_order_item(game, game_state);
     return;

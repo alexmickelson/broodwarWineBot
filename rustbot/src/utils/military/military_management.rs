@@ -17,8 +17,8 @@ pub fn military_onframe(game: &Game, game_state: &mut GameState) {
 }
 
 pub fn assign_unit_to_squad(game: &Game, unit: &Unit, game_state: &mut GameState) {
-  let first_squad = game_state.military_squads.first_mut();
-  if let Some(squad) = first_squad {
+  let last_squad = game_state.military_squads.last_mut();
+  if let Some(squad) = last_squad {
     squad.assigned_unit_ids.insert(unit.get_id());
     return;
   }
@@ -109,7 +109,7 @@ pub fn create_initial_squad(game: &Game) -> Option<MilitarySquad> {
   })
 }
 
-pub fn update_squads(game: &Game, game_state: &mut GameState) {
+fn update_squads(game: &Game, game_state: &mut GameState) {
   for squad in game_state.military_squads.iter_mut() {
     if let (Some(ref path), Some(index)) = (&squad.target_path, squad.target_path_index) {
       if index < path.len() {
@@ -137,7 +137,7 @@ pub fn update_squads(game: &Game, game_state: &mut GameState) {
       SquadRole::Attack => {}
       SquadRole::Defend => {}
       SquadRole::AttackWorkers => {
-        if squad_count_close_to_target < 6 {
+        if squad_count_close_to_target < 4 {
           // println!(
           //   "Squad {} not ready to attack: {} units close to target (need 6)",
           //   squad.name, squad_count_close_to_target

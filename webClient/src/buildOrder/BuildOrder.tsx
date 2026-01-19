@@ -10,12 +10,14 @@ function getItemDisplayName(item: BuildOrderItem): string {
     return item.base_index !== null ? `${name} @base${item.base_index}` : name;
   } else if (item.type === 'Upgrade') {
     return item.upgrade_type.replace(/^(Terran|Protoss|Zerg)_/, "");
+  } else if (item.type === 'Squad') {
+    return `${item.name} (${item.role})`;
   }
   return "Unknown";
 }
 
 function getItemType(item: BuildOrderItem): string {
-  return item.type === 'Unit' ? 'Unit' : 'Upgrade';
+  return item.type;
 }
 
 export const BuildOrder: React.FC = () => {

@@ -122,11 +122,11 @@ pub fn calculate_threat_avoidance_move(
     // Calculate which perpendicular direction gets us closer to the target
     let to_target_x = tx as f32 - unit_pos.x as f32;
     let to_target_y = ty as f32 - unit_pos.y as f32;
-    
+
     // Dot product to see which perpendicular aligns better with target direction
     let dot_left = perp_left_x * to_target_x + perp_left_y * to_target_y;
     let dot_right = perp_right_x * to_target_x + perp_right_y * to_target_y;
-    
+
     if dot_left > dot_right {
       (perp_left_x, perp_left_y)
     } else {
@@ -137,21 +137,21 @@ pub fn calculate_threat_avoidance_move(
     // Calculate which side has fewer/more distant threats
     let mut left_threat_score = 0.0;
     let mut right_threat_score = 0.0;
-    
+
     for threat in &relevant_threats {
       let threat_pos = threat.get_position();
       let to_threat_x = threat_pos.x as f32 - unit_pos.x as f32;
       let to_threat_y = threat_pos.y as f32 - unit_pos.y as f32;
       let threat_distance = (to_threat_x * to_threat_x + to_threat_y * to_threat_y).sqrt();
-      
+
       if threat_distance > 0.0 {
         let norm_to_threat_x = to_threat_x / threat_distance;
         let norm_to_threat_y = to_threat_y / threat_distance;
-        
+
         // Check which perpendicular moves us away from this threat
         let left_dot = perp_left_x * norm_to_threat_x + perp_left_y * norm_to_threat_y;
         let right_dot = perp_right_x * norm_to_threat_x + perp_right_y * norm_to_threat_y;
-        
+
         // Negative dot means moving away from threat - that's good
         // Weight by inverse distance (closer threats matter more)
         let weight = 1.0 / (threat_distance + 1.0);
@@ -159,7 +159,7 @@ pub fn calculate_threat_avoidance_move(
         right_threat_score -= right_dot * weight;
       }
     }
-    
+
     // Choose the direction with better score (higher means moving away from threats)
     if left_threat_score > right_threat_score {
       (perp_left_x, perp_left_y)
@@ -180,7 +180,7 @@ pub fn calculate_threat_avoidance_move(
   }
 
   let move_pos = Position::new(move_x as i32, move_y as i32);
-  
+
   // Helper to check if a position is valid and walkable
   let is_valid_and_walkable = |pos: Position| -> bool {
     let walk_pos = pos.to_walk_position();
@@ -191,7 +191,7 @@ pub fn calculate_threat_avoidance_move(
     }
     game.is_walkable(walk_pos)
   };
-  
+
   // Validate that the position is walkable, if not try to find a nearby walkable position
   if is_valid_and_walkable(move_pos) {
     Some(move_pos)
@@ -205,7 +205,7 @@ pub fn calculate_threat_avoidance_move(
         let test_x = move_pos.x + (angle.cos() * check_distance as f32) as i32;
         let test_y = move_pos.y + (angle.sin() * check_distance as f32) as i32;
         let test_pos = Position::new(test_x, test_y);
-        
+
         if is_valid_and_walkable(test_pos) {
           found_walkable = Some(test_pos);
           break;
@@ -215,7 +215,7 @@ pub fn calculate_threat_avoidance_move(
         break;
       }
     }
-    
+
     // If we found a walkable position, use it; otherwise return None
     found_walkable
   }
@@ -250,10 +250,9 @@ pub fn handle_threat_avoidance(
     weights.lateral,
     weights.target,
   ) {
-    
     let unit_order = unit.get_order();
     let order_target = unit.get_order_target_position();
-    
+
     if should_reissue_move_command(unit, unit_order, order_target, final_move_pos) {
       let _ = unit.move_(final_move_pos);
     }
@@ -273,31 +272,32 @@ fn should_reissue_move_command(
   if unit_order == Order::Move {
     if let Some(current_target) = order_target {
       let unit_pos = unit.get_position();
-      
+
       // Check distance to current target - reissue if close to prevent stopping
       let dist_to_current_x = (current_target.x - unit_pos.x) as f32;
       let dist_to_current_y = (current_target.y - unit_pos.y) as f32;
-      let dist_to_current = (dist_to_current_x * dist_to_current_x + dist_to_current_y * dist_to_current_y).sqrt();
-      
+      let dist_to_current =
+        (dist_to_current_x * dist_to_current_x + dist_to_current_y * dist_to_current_y).sqrt();
+
       // Reissue command if getting close to prevent deceleration
       if dist_to_current < 48.0 {
         return true;
       }
-      
+
       // Calculate if current target direction differs from new target direction
       let current_dir_x = (current_target.x - unit_pos.x) as f32;
       let current_dir_y = (current_target.y - unit_pos.y) as f32;
       let current_length = (current_dir_x * current_dir_x + current_dir_y * current_dir_y).sqrt();
-      
+
       let new_dir_x = (new_target.x - unit_pos.x) as f32;
       let new_dir_y = (new_target.y - unit_pos.y) as f32;
       let new_length = (new_dir_x * new_dir_x + new_dir_y * new_dir_y).sqrt();
-      
+
       if current_length > 0.0 && new_length > 0.0 {
         // Normalize and calculate dot product
         let dot = (current_dir_x / current_length) * (new_dir_x / new_length)
           + (current_dir_y / current_length) * (new_dir_y / new_length);
-        
+
         // If directions are similar (within ~60 degrees), keep old command
         dot < 0.5 // Re-issue if directions diverge significantly
       } else {
@@ -316,6 +316,54 @@ pub fn attack_nearby_worker(
   unit: &Unit,
   enemy_workers_close_to_squad: &[Unit],
 ) -> bool {
+  if can_attack_worker_close_to_unit(game, unit) {
+    return true;
+  }
+
+  if can_attack_worker_close_to_squad_target(unit, enemy_workers_close_to_squad) {
+    return true;
+  }
+
+  if handle_threat_avoidance(game, unit, None, ThreatAvoidanceMode::Aggressive) {
+    return true;
+  }
+
+  false
+}
+
+fn can_attack_worker_close_to_unit(game: &Game, unit: &Unit) -> bool {
+  let workers_close_to_this_unit =
+    get_enemies_within(game, unit.get_position(), 64.0, unit.get_player().get_id());
+
+  if let Some(closest_worker) = workers_close_to_this_unit.first() {
+    let unit_order = unit.get_order();
+    let order_target = unit.get_target();
+
+    if unit_order == Order::AttackUnit {
+      return true;
+    }
+
+    let order_unit_target_id = order_target.and_then(|u: Unit| {
+      let id = u.get_id();
+      if id < 10000 {
+        Some(id)
+      } else {
+        None
+      }
+    });
+    if unit_order != Order::AttackUnit || order_unit_target_id != Some(closest_worker.get_id()) {
+      let _ = unit.attack(closest_worker);
+    }
+    return true;
+  }
+
+  false
+}
+
+fn can_attack_worker_close_to_squad_target(
+  unit: &Unit,
+  enemy_workers_close_to_squad: &[Unit],
+) -> bool {
   // Sort workers by distance to this specific unit
   let unit_pos = unit.get_position();
   let mut workers_with_distance: Vec<(&Unit, f32)> = enemy_workers_close_to_squad
@@ -328,9 +376,9 @@ pub fn attack_nearby_worker(
       (worker, distance_squared)
     })
     .collect();
-  
+
   workers_with_distance.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-  
+
   if let Some((closest_worker, distance_squared)) = workers_with_distance.first() {
     let distance = distance_squared.sqrt();
 
@@ -338,38 +386,24 @@ pub fn attack_nearby_worker(
       let unit_order = unit.get_order();
       let order_target = unit.get_target();
 
-      // Check if the target unit is valid before using it
-      let mut already_targeting_worker = false;
-      let order_unit_target_id = order_target.and_then(|u: Unit| {
-        let id = u.get_id();
-        if id < 10000 { 
-          // Valid unit, check if it's a worker
-          if u.get_type().is_worker() {
-            // already targeting a worker
-            already_targeting_worker = true;
-          }
-          Some(id) 
-        } else { 
-          None 
-        }
-      });
-      
-      // If we're already targeting a valid worker, no need to reissue
-      if already_targeting_worker {
+      if unit_order == Order::AttackUnit {
         return true;
       }
+
+      let order_unit_target_id = order_target.and_then(|u: Unit| {
+        let id = u.get_id();
+        if id < 10000 {
+          Some(id)
+        } else {
+          None
+        }
+      });
 
       if unit_order != Order::AttackUnit || order_unit_target_id != Some(closest_worker.get_id()) {
         let _ = unit.attack(*closest_worker);
       }
       return true;
     }
-  
-  }
-
-  // No workers nearby - just avoid threats
-  if handle_threat_avoidance(game, unit, None, ThreatAvoidanceMode::Aggressive) {
-    return true;
   }
 
   false
@@ -404,7 +438,12 @@ fn get_threats_with_range_awareness(
         return None;
       }
 
+      // Ignore buildings that are not complete yet
       let unit_type = u.get_type();
+      if unit_type.is_building() && !u.is_completed() {
+        return None;
+      }
+
       let ground_weapon = unit_type.ground_weapon();
       let air_weapon = unit_type.air_weapon();
 

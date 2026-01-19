@@ -227,6 +227,9 @@ async fn larvae_handler(
             BuildOrderItem::Upgrade(upgrade_type) => {
               format!("{:?}", upgrade_type)
             }
+            BuildOrderItem::Squad { name, role, status } => {
+              format!("Squad({}, {:?}, {:?})", name, role, status)
+            }
           };
           assignment_details.insert(*larva_id, detail);
         }
@@ -366,6 +369,11 @@ pub enum BuildOrderItemDTO {
   Upgrade {
     upgrade_type: String,
   },
+  Squad {
+    name: String,
+    role: String,
+    status: String,
+  },
 }
 
 impl From<&BuildOrderItem> for BuildOrderItemDTO {
@@ -377,6 +385,11 @@ impl From<&BuildOrderItem> for BuildOrderItemDTO {
       },
       BuildOrderItem::Upgrade(upgrade_type) => BuildOrderItemDTO::Upgrade {
         upgrade_type: format!("{:?}", upgrade_type),
+      },
+      BuildOrderItem::Squad { name, role, status } => BuildOrderItemDTO::Squad {
+        name: name.clone(),
+        role: format!("{:?}", role),
+        status: format!("{:?}", status),
       },
     }
   }

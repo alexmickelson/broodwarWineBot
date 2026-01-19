@@ -1,22 +1,43 @@
 use rsbwapi::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use crate::utils::military::squad_models;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuildOrderItem {
-  Unit { unit_type: UnitType, base_index: Option<usize> },
+  Unit {
+    unit_type: UnitType,
+    base_index: Option<usize>,
+  },
   Upgrade(UpgradeType),
+  Squad {
+    name: String,
+    role: squad_models::SquadRole,
+    status: squad_models::SquadStatus,
+  },
 }
 
 impl BuildOrderItem {
   /// Create a Unit build order item without a specific base location
   pub fn unit(unit_type: UnitType) -> Self {
-    BuildOrderItem::Unit { unit_type, base_index: None }
+    BuildOrderItem::Unit {
+      unit_type,
+      base_index: None,
+    }
   }
 
   /// Create a Unit build order item at a specific base location
   /// base_index 0 = starting location, 1 = natural expansion, etc.
   pub fn unit_at_base(unit_type: UnitType, base_index: usize) -> Self {
-    BuildOrderItem::Unit { unit_type, base_index: Some(base_index) }
+    BuildOrderItem::Unit {
+      unit_type,
+      base_index: Some(base_index),
+    }
+  }
+
+  /// Create a Squad build order item
+  pub fn squad(name: String, role: squad_models::SquadRole, status: squad_models::SquadStatus) -> Self {
+    BuildOrderItem::Squad { name, role, status }
   }
 }
 
@@ -26,7 +47,10 @@ impl Serialize for BuildOrderItem {
     S: serde::Serializer,
   {
     match self {
-      BuildOrderItem::Unit { unit_type, base_index } => {
+      BuildOrderItem::Unit {
+        unit_type,
+        base_index,
+      } => {
         let base_str = match base_index {
           Some(idx) => format!(" @base{}", idx),
           None => String::new(),
@@ -35,6 +59,9 @@ impl Serialize for BuildOrderItem {
       }
       BuildOrderItem::Upgrade(upgrade_type) => {
         serializer.serialize_str(&format!("{:?}", upgrade_type))
+      }
+      BuildOrderItem::Squad { name, role, status } => {
+        serializer.serialize_str(&format!("Squad({}, {:?}, {:?})", name, role, status))
       }
     }
   }
@@ -46,6 +73,9 @@ impl<'de> Deserialize<'de> for BuildOrderItem {
     D: serde::Deserializer<'de>,
   {
     // For now, just return a default value as we don't need to deserialize
-    Ok(BuildOrderItem::Unit { unit_type: UnitType::None, base_index: None })
+    Ok(BuildOrderItem::Unit {
+      unit_type: UnitType::None,
+      base_index: None,
+    })
   }
 }

@@ -13,14 +13,14 @@ pub struct MilitarySquad {
   pub target_path_index: Option<usize>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SquadRole {
   Attack,
   Defend,
   AttackWorkers,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SquadStatus {
   Gathering,
   Attacking,

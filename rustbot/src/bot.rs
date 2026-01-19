@@ -124,6 +124,10 @@ impl AiModule for RustBot {
               // Don't advance on unit morphs if waiting for an upgrade
               false
             }
+            BuildOrderItem::Squad { .. } => {
+              // Don't advance on unit morphs if waiting for a squad
+              false
+            }
           }
         } else {
           false
@@ -161,6 +165,10 @@ impl AiModule for RustBot {
             } => unit.get_type() == *expected_unit_type,
             BuildOrderItem::Upgrade(_) => {
               // Don't advance on building construction if waiting for an upgrade
+              false
+            }
+            BuildOrderItem::Squad { .. } => {
+              // Don't advance on building construction if waiting for a squad
               false
             }
           }
