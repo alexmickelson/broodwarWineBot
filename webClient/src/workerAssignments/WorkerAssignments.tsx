@@ -3,7 +3,6 @@ import { useWorkerStatus } from "./workerAssignmentsHooks";
 import { ExpandableSection } from "../components/ExpandableSection";
 import { LoadingState } from "../components/LoadingState";
 import { EmptyState } from "../components/EmptyState";
-import { DataField } from "../components/DataField";
 import type {
   WorkerAssignment,
   WorkerAssignmentType,
@@ -20,45 +19,62 @@ const WorkerCard: React.FC<{ worker: WorkerCardData }> = ({ worker }) => {
     | "scouting"
     | "building";
 
+  const typeColors = {
+    gathering: "bg-emerald-500/20 text-emerald-500 border-emerald-500/30",
+    scouting: "bg-azure-500/20 text-azure-500 border-azure-500/30",
+    building: "bg-amber-500/20 text-amber-500 border-amber-500/30",
+  };
+
+  const typeIcons = {
+    gathering: "⛏",
+    scouting: "👁",
+    building: "🏗",
+  };
+
   return (
-    <div className="bg-bg-secondary border border-border-primary rounded p-4">
-      <div className="flex justify-between items-center mb-3 pb-2 border-b border-border-accent">
-        <span className="text-text-muted text-xs uppercase tracking-wider">
-          Worker
-        </span>
-        <span className="text-plasma-500 font-bold text-lg">
-          #{worker.workerId}
+    <div className={`border-2 rounded-lg p-4 ${typeColors[typeClass]}`}>
+      {/* Header with icon and worker ID */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">{typeIcons[typeClass]}</span>
+          <span className="font-bold text-lg">Worker #{worker.workerId}</span>
+        </div>
+      </div>
+
+      {/* Assignment type badge */}
+      <div className="mb-2">
+        <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${typeColors[typeClass]}`}>
+          {worker.assignment_type}
         </span>
       </div>
-      <div className="flex flex-col gap-2">
-        <DataField
-          label="assignment_type"
-          value={worker.assignment_type}
-          type="enum"
-          enumType={typeClass}
-        />
-        {worker.buildingType && (
-          <DataField
-            label="building_type"
-            value={worker.buildingType}
-            type="unit"
-          />
-        )}
-        {worker.target_unit != null && (
-          <DataField
-            label="target_unit"
-            value={worker.target_unit}
-            type="number"
-          />
-        )}
-        {worker.target_position && (
-          <DataField
-            label="target_position"
-            value={`(${worker.target_position[0]}, ${worker.target_position[1]})`}
-            type="tuple"
-          />
-        )}
-      </div>
+
+      {/* Building info */}
+      {worker.buildingType && (
+        <div className="mt-3 pt-3 border-t border-current/20">
+          <div className="text-xs opacity-70 mb-1">Building</div>
+          <div className="font-bold">
+            {worker.buildingType.replace(/^(Terran|Protoss|Zerg)_/, "")}
+          </div>
+        </div>
+      )}
+
+      {/* Target unit */}
+      {worker.target_unit != null && (
+        <div className="mt-3 pt-3 border-t border-current/20">
+          <div className="text-xs opacity-70 mb-1">Target Unit</div>
+          <div className="font-mono font-bold">#{worker.target_unit}</div>
+        </div>
+      )}
+
+      {/* Target position */}
+      {worker.target_position && (
+        <div className="mt-3 pt-3 border-t border-current/20">
+          <div className="text-xs opacity-70 mb-1">Target Position</div>
+          <div className="font-mono text-sm">
+            ({worker.target_position[0]}, {worker.target_position[1]})
+          </div>
+        </div>
+      )}
     </div>
   );
 };
