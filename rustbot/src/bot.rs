@@ -132,14 +132,38 @@ impl AiModule for RustBot {
         &unit,
         &mut locked_state,
       );
-      println!(
-        "{:?} started construction, moving build order from {} -> {}",
-        unit.get_type(),
-        locked_state.build_order_index,
-        locked_state.build_order_index + 1
-      );
-      locked_state.build_order_index += 1;
-      build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
+      
+      // Check if this building matches the current build order item
+      let should_advance = if let Some(current_item) = locked_state.build_order.get(locked_state.build_order_index) {
+        match current_item {
+          BuildOrderItem::Unit(expected_unit_type) => {
+            unit.get_type() == *expected_unit_type
+          },
+          BuildOrderItem::Upgrade(_) => {
+            // Don't advance on building construction if waiting for an upgrade
+            false
+          }
+        }
+      } else {
+        false
+      };
+      
+      if should_advance {
+        println!(
+          "{:?} started construction (matches build order), moving build order from {} -> {}",
+          unit.get_type(),
+          locked_state.build_order_index,
+          locked_state.build_order_index + 1
+        );
+        locked_state.build_order_index += 1;
+        build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
+      } else {
+        println!(
+          "{:?} started construction, but not advancing build order (current item: {:?})",
+          unit.get_type(),
+          locked_state.build_order.get(locked_state.build_order_index)
+        );
+      }
     }
   }
 
@@ -188,7 +212,7 @@ fn update_game_speed(game: &Game, game_state: &GameState) {
     (*game_ptr).set_local_speed(speed);
 
     if speed == 0 {
-      (*game_ptr).set_frame_skip(5);
+      (*game_ptr).set_frame_skip(15);
     } else {
       (*game_ptr).set_frame_skip(0);
     }
