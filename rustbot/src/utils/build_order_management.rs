@@ -3,6 +3,19 @@ use crate::utils::building_stuff::{creature_stuff, researching_stuff, structure_
 use crate::utils::game_state::GameState;
 use rsbwapi::*;
 
+/// Advances the build order to the next item and logs the reason
+pub fn advance_build_order(game: &Game, game_state: &mut GameState, reason: &str) {
+  let old_index = game_state.build_order_index;
+  game_state.build_order_index += 1;
+  println!(
+    "[BUILD ORDER] {:?} -> {:?} | {}",
+    game_state.build_order_index,
+    old_index,
+    reason
+  );
+  make_assignment_for_current_build_order_item(game, game_state);
+}
+
 pub fn build_order_on_unit_started(game: &Game, completed_unit: &Unit, game_state: &mut GameState) {
   let Some(player) = game.self_() else {
     println!("Failed to get self player in build_order_on_unit_started");
@@ -30,18 +43,7 @@ pub fn build_order_on_unit_started(game: &Game, completed_unit: &Unit, game_stat
   match current_build_order_item {
     BuildOrderItem::Unit(unit_type) => {
       if completed_unit.get_type() == unit_type {
-        println!(
-          "Completed build order item: {:?} (unit created), moving to next item",
-          current_build_order_item
-        );
-        println!(
-          "{:?} finished training/morphing, moving build order from {} -> {}",
-          unit_type,
-          game_state.build_order_index,
-          game_state.build_order_index + 1
-        );
-        game_state.build_order_index += 1;
-        make_assignment_for_current_build_order_item(game, game_state);
+        advance_build_order(game, game_state, &format!("Unit {:?} created", unit_type));
       }
     }
     BuildOrderItem::Upgrade(_) => {}

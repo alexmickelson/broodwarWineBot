@@ -1,5 +1,41 @@
+use crate::utils::build_orders::build_order_item::BuildOrderItem;
 use crate::utils::game_state::{BuildingAssignment, GameState};
 use rsbwapi::*;
+
+pub fn has_started_current_upgrade(game: &Game, game_state: &GameState) -> bool {
+  // Check if the current build order item is an upgrade
+  let Some(current_item) = game_state.build_order.get(game_state.build_order_index) else {
+    return false;
+  };
+
+  let upgrade_type = match current_item {
+    BuildOrderItem::Upgrade(upgrade) => upgrade,
+    _ => return false,
+  };
+  // Find the building assigned to this build order index
+  let Some(building_id) =
+    game_state
+      .building_assignments
+      .iter()
+      .find_map(|(&building_id, assignment)| {
+        if assignment.build_order_index == game_state.build_order_index {
+          Some(building_id)
+        } else {
+          None
+        }
+      })
+  else {
+    return false;
+  };
+
+  // Check if the building is actually researching the upgrade
+  let Some(building_unit) = game.get_unit(building_id) else {
+    return false;
+  };
+
+  // Check if the building is upgrading and if it's the right upgrade
+  building_unit.is_upgrading() && building_unit.get_upgrade() == *upgrade_type
+}
 
 pub fn assign_building_to_research_upgrade(
   game: &Game,

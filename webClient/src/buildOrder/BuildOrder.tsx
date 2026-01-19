@@ -15,10 +15,18 @@ export const BuildOrder: React.FC = () => {
   // Scroll to current item when it changes
   useEffect(() => {
     if (currentItemRef.current) {
-      currentItemRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
+      const container = currentItemRef.current.parentElement;
+      if (container) {
+        const itemTop = currentItemRef.current.offsetTop;
+        const itemHeight = currentItemRef.current.offsetHeight;
+        const gap = 8;
+        const targetScroll = itemTop - (itemHeight + gap) * 3;
+        
+        container.scrollTo({
+          top: Math.max(0, targetScroll),
+          behavior: 'smooth',
+        });
+      }
     }
   }, [build_order_index]);
 

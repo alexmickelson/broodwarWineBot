@@ -1,7 +1,7 @@
 use crate::utils::build_order_management;
 use crate::utils::build_orders::build_order_item::BuildOrderItem;
 use crate::utils::build_orders::pool_speed_expand;
-use crate::utils::building_stuff::creature_stuff;
+use crate::utils::building_stuff::{creature_stuff, researching_stuff};
 use crate::utils::game_state::{DebugFlag, GameState, SharedGameState};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use crate::utils::map_utils::{pathing, region_stuff};
@@ -44,6 +44,20 @@ impl AiModule for RustBot {
     let Ok(mut locked_state) = self.game_state.lock() else {
       return;
     };
+
+    if researching_stuff::has_started_current_upgrade(game, &locked_state) {
+      let upgrade_name = if let Some(BuildOrderItem::Upgrade(upgrade_type)) = 
+        locked_state.build_order.get(locked_state.build_order_index) {
+        format!("{:?}", upgrade_type)
+      } else {
+        "Unknown".to_string()
+      };
+      build_order_management::advance_build_order(
+        game, 
+        &mut locked_state, 
+        &format!("Upgrade {:} started", upgrade_name)
+      );
+    }
 
     update_game_speed(game, &locked_state);
 
@@ -92,13 +106,13 @@ impl AiModule for RustBot {
     if unit.get_type() == UnitType::Zerg_Egg {
       // unit started morphing, remove larva responsibility
       creature_stuff::remove_larva_responsibility(&mut locked_state, &unit);
-      
+
       // Check if this morph matches the current build order item
-      let should_advance = if let Some(current_item) = locked_state.build_order.get(locked_state.build_order_index) {
+      let should_advance = if let Some(current_item) =
+        locked_state.build_order.get(locked_state.build_order_index)
+      {
         match current_item {
-          BuildOrderItem::Unit(expected_unit_type) => {
-            unit.get_build_type() == *expected_unit_type
-          },
+          BuildOrderItem::Unit(expected_unit_type) => unit.get_build_type() == *expected_unit_type,
           BuildOrderItem::Upgrade(_) => {
             // Don't advance on unit morphs if waiting for an upgrade
             false
@@ -107,16 +121,13 @@ impl AiModule for RustBot {
       } else {
         false
       };
-      
+
       if should_advance {
-        println!(
-          "Zerg_Egg started morphing into expected unit {:?}, moving build order from {} -> {}",
-          unit.get_build_type(),
-          locked_state.build_order_index,
-          locked_state.build_order_index + 1
+        build_order_management::advance_build_order(
+          game,
+          &mut locked_state,
+          &format!("Zerg_Egg started morphing into {:?}", unit.get_build_type()),
         );
-        locked_state.build_order_index += 1;
-        build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
       } else {
         println!(
           "Zerg_Egg morphing into {:?}, but not advancing build order (current item: {:?})",
@@ -132,31 +143,27 @@ impl AiModule for RustBot {
         &unit,
         &mut locked_state,
       );
-      
+
       // Check if this building matches the current build order item
-      let should_advance = if let Some(current_item) = locked_state.build_order.get(locked_state.build_order_index) {
-        match current_item {
-          BuildOrderItem::Unit(expected_unit_type) => {
-            unit.get_type() == *expected_unit_type
-          },
-          BuildOrderItem::Upgrade(_) => {
-            // Don't advance on building construction if waiting for an upgrade
-            false
+      let should_advance =
+        if let Some(current_item) = locked_state.build_order.get(locked_state.build_order_index) {
+          match current_item {
+            BuildOrderItem::Unit(expected_unit_type) => unit.get_type() == *expected_unit_type,
+            BuildOrderItem::Upgrade(_) => {
+              // Don't advance on building construction if waiting for an upgrade
+              false
+            }
           }
-        }
-      } else {
-        false
-      };
-      
+        } else {
+          false
+        };
+
       if should_advance {
-        println!(
-          "{:?} started construction (matches build order), moving build order from {} -> {}",
-          unit.get_type(),
-          locked_state.build_order_index,
-          locked_state.build_order_index + 1
+        build_order_management::advance_build_order(
+          game,
+          &mut locked_state,
+          &format!("Building {:?} started construction", unit.get_type()),
         );
-        locked_state.build_order_index += 1;
-        build_order_management::make_assignment_for_current_build_order_item(game, &mut locked_state);
       } else {
         println!(
           "{:?} started construction, but not advancing build order (current item: {:?})",
@@ -174,7 +181,12 @@ impl AiModule for RustBot {
   }
 
   fn on_unit_complete(&mut self, game: &Game, unit: Unit) {
-    if military_management::is_military_unit(&unit) {
+    let Some(player) = game.self_() else {
+      return;
+    };
+
+    // Only assign our own units to squads, not enemy units
+    if unit.get_player().get_id() == player.get_id() && military_management::is_military_unit(&unit) {
       military_management::assign_unit_to_squad(&game, &unit, &mut self.game_state.lock().unwrap());
     }
   }
@@ -210,12 +222,9 @@ fn update_game_speed(game: &Game, game_state: &GameState) {
   unsafe {
     let game_ptr = game as *const Game as *mut Game;
     (*game_ptr).set_local_speed(speed);
-
-    if speed == 0 {
-      (*game_ptr).set_frame_skip(15);
-    } else {
-      (*game_ptr).set_frame_skip(0);
-    }
+    
+    let frame_skip_value = if speed == 0 { 15 } else { 0 };
+    (*game_ptr).set_frame_skip(frame_skip_value);
   }
 }
 
@@ -229,7 +238,6 @@ fn draw_debug_lines(game: &Game, game_state: &GameState) {
       }
       DebugFlag::ShowMilitaryAssignments => {
         military_management::draw_military_assignments(game, &game_state);
-
       }
       DebugFlag::ShowPathToEnemyBase => {
         if let Some(path) = game_state.path_to_enemy_base.as_ref() {
