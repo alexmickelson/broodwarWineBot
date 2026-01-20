@@ -2,7 +2,8 @@ use crate::utils::{
   game_state::GameState,
   map_utils::pathing,
   military::{
-    squad_attack_workers::{self, ThreatAvoidanceMode},
+    avoid_enemy_movement_utils::{self, ThreatAvoidanceMode},
+    squad_attack_workers::{self},
     squad_defend,
     squad_models::{MilitarySquad, SquadRole, SquadStatus},
     squad_mutas,
@@ -60,6 +61,7 @@ pub fn create_squad(
       target_position: None,
       target_path: None,
       target_path_index: None,
+      leader_unit_id: None,
       unit_path_assignments: std::collections::HashMap::new(),
     },
     SquadRole::Defend => {
@@ -80,6 +82,7 @@ pub fn create_squad(
         target_position,
         target_path: None,
         target_path_index: None,
+        leader_unit_id: None,
         unit_path_assignments: std::collections::HashMap::new(),
       }
     }
@@ -107,7 +110,7 @@ fn enforce_military_assignments(game: &Game, game_state: &mut GameState) {
       squad_attack_workers::get_worker_enemies_within(
         game,
         Position::new(target_x, target_y),
-        200.0,
+        400.0,
         game.self_().map_or(0, |p| p.get_id()),
       )
     } else {
@@ -142,7 +145,7 @@ fn unit_in_squad_control(
     }
     SquadRole::AttackWorkers => match squad.status {
       SquadStatus::Gathering => {
-        let nearby_enemies = squad_attack_workers::get_enemies_within(
+        let nearby_enemies = avoid_enemy_movement_utils::get_enemies_within(
           game,
           unit.get_position(),
           80.0,
@@ -197,7 +200,7 @@ fn unit_in_squad_control(
         };
 
         // Only move to target if threat avoidance doesn't handle it
-        let handled_by_threat_avoidance = squad_attack_workers::handle_threat_avoidance(
+        let handled_by_threat_avoidance = avoid_enemy_movement_utils::handle_threat_avoidance(
           game,
           unit,
           Some((target_x, target_y)),

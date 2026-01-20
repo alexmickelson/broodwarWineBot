@@ -12,6 +12,7 @@ pub mod building_stuff {
 }
 
 pub mod military {
+  pub mod avoid_enemy_movement_utils;
   pub mod military_management;
   pub mod squad_attack_workers;
   pub mod squad_defend;

@@ -203,7 +203,15 @@ fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
     })
     .count();
 
-  if supply_remaining < 5 && overlords_in_production == 0 {
+  // Queue overlord if supply-blocked or nearly blocked, accounting for overlords already building
+  let should_build_overlord = match overlords_in_production {
+    0 => supply_remaining < 5,
+    3 => supply_remaining < 3,
+    4 => supply_remaining < 2,
+    _ => supply_remaining == 2,
+  };
+
+  if should_build_overlord {
     println!(
       "queuing overlord because supply is {} and overlords in production is {}",
       supply_remaining, overlords_in_production
@@ -220,7 +228,7 @@ fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
     .filter(|u| u.get_type() == UnitType::Zerg_Drone && u.get_player().get_id() == player.get_id())
     .count();
 
-  if total_drones < 40 {
+  if total_drones < 30 {
     // Check if the last item was a drone
     let last_was_drone = game_state
       .build_order
@@ -243,14 +251,16 @@ fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
     }
   }
 
-  // Build the last unit type from the build order (excluding overlords and buildings)
+  // Build the last unit type from the build order (excluding overlords, drones, and buildings)
   let last_unit = game_state
     .build_order
     .iter()
     .rev()
     .find_map(|item| {
       if let BuildOrderItem::Unit { unit_type, .. } = item {
-        if *unit_type != UnitType::Zerg_Overlord && !unit_type.is_building() {
+        if *unit_type != UnitType::Zerg_Overlord 
+           && *unit_type != UnitType::Zerg_Drone 
+           && !unit_type.is_building() {
           return Some(*unit_type);
         }
       }
