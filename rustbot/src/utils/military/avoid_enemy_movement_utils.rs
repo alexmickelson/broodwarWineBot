@@ -432,3 +432,35 @@ pub fn get_enemies_within(
   enemies.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
   enemies.into_iter().map(|(u, _)| u).collect()
 }
+
+/// Get all enemy units within a radius (no filtering by weapon type)
+pub fn get_all_enemies_within(
+  game: &Game,
+  position: Position,
+  radius: f32,
+  player_id: usize,
+) -> Vec<Unit> {
+  let radius_squared = radius * radius;
+  let mut enemies: Vec<(Unit, f32)> = game
+    .get_all_units()
+    .into_iter()
+    .filter_map(|u| {
+      if u.get_player().get_id() == player_id {
+        return None;
+      }
+
+      let enemy_pos = u.get_position();
+      let dx = (position.x - enemy_pos.x) as f32;
+      let dy = (position.y - enemy_pos.y) as f32;
+      let distance_squared = dx * dx + dy * dy;
+      if distance_squared <= radius_squared {
+        Some((u, distance_squared))
+      } else {
+        None
+      }
+    })
+    .collect();
+
+  enemies.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+  enemies.into_iter().map(|(u, _)| u).collect()
+}

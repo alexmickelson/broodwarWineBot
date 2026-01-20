@@ -91,6 +91,7 @@ pub fn attack_workers_squad(game: &Game, self_player: &Player) -> MilitarySquad 
       target_path: None,
       target_path_index: None,
       leader_unit_id: None,
+      required_units_near_leader: 5,
       unit_path_assignments: std::collections::HashMap::new(),
     };
   };
@@ -108,6 +109,7 @@ pub fn attack_workers_squad(game: &Game, self_player: &Player) -> MilitarySquad 
       target_path: None,
       target_path_index: None,
       leader_unit_id: None,
+      required_units_near_leader: 5,
       unit_path_assignments: std::collections::HashMap::new(),
     };
   };
@@ -137,6 +139,7 @@ pub fn attack_workers_squad(game: &Game, self_player: &Player) -> MilitarySquad 
     target_path: path_to_enemy,
     target_path_index: Some(goal),
     leader_unit_id: None,
+    required_units_near_leader: 5,
     unit_path_assignments: std::collections::HashMap::new(),
   }
 }

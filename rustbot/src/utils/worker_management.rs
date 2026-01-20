@@ -190,7 +190,7 @@ pub fn enforce_assignments(game: &Game, game_state: &mut GameState) {
       match assignment.assignment_type {
         WorkerAssignmentType::Gathering => {
           let should_clear =
-            enforce_gathering_assignment(game, worker, assignment, &base_locations);
+            enforce_gathering_assignment(game, worker, assignment);
           if should_clear {
             workers_to_clear.push(worker_id);
           }
@@ -202,9 +202,31 @@ pub fn enforce_assignments(game: &Game, game_state: &mut GameState) {
     }
   }
 
-  // Clear assignments that need reassignment
-  for worker_id in workers_to_clear {
-    game_state.worker_assignments.remove(&worker_id);
+  // Get minerals and extractors for reassignment
+  let static_minerals = game.get_static_minerals();
+  let minerals: Vec<_> = static_minerals.iter().collect();
+  let extractors: Vec<_> = game
+    .get_all_units()
+    .into_iter()
+    .filter(|u| {
+      u.get_type() == UnitType::Zerg_Extractor
+        && u.get_player().get_id() == game.self_().map(|p| p.get_id()).unwrap_or(0)
+        && u.is_completed()
+    })
+    .collect();
+
+  // Try to reassign workers that need it
+  for worker_id in &workers_to_clear {
+    if !assign_worker_to_other_resource(
+      game,
+      *worker_id,
+      &mut game_state.worker_assignments,
+      &minerals,
+      &extractors,
+    ) {
+      // If couldn't reassign, clear the assignment
+      game_state.worker_assignments.remove(worker_id);
+    }
   }
 }
 
@@ -229,26 +251,10 @@ fn remove_dead_workers(assignments: &mut HashMap<usize, WorkerAssignment>, worke
   });
 }
 
-fn find_nearest_base(
-  mineral_pos: Position,
-  base_locations: &[TilePosition],
-) -> Option<TilePosition> {
-  base_locations
-    .iter()
-    .min_by_key(|base| {
-      let base_pos = Position::new(base.x * 32 + 64, base.y * 32 + 48);
-      let dx = (mineral_pos.x - base_pos.x) as f32;
-      let dy = (mineral_pos.y - base_pos.y) as f32;
-      (dx * dx + dy * dy).sqrt() as i32
-    })
-    .copied()
-}
-
 fn enforce_gathering_assignment(
   game: &Game,
   worker: &Unit,
   assignment: &mut WorkerAssignment,
-  base_locations: &[TilePosition],
 ) -> bool {
   let Some(assigned_mineral_id) = assignment.target_unit else {
     return false;
@@ -287,19 +293,14 @@ fn enforce_gathering_assignment(
           e
         );
 
-        // If unreachable, move worker closer to nearest base
+        // If unreachable, try to assign to another resource
         if e == Error::Unreachable_Location {
-          let mineral_pos = mineral.get_position();
-          if let Some(nearest_base) = find_nearest_base(mineral_pos, base_locations) {
-            let base_pos = Position::new(nearest_base.x * 32 + 64, nearest_base.y * 32 + 48);
-            let move_target = Position::new(base_pos.x + 96, base_pos.y);
-            let _ = worker.move_(move_target);
-            println!(
-              "Worker {} moving closer to base before gathering from unreachable resource {}",
-              worker.get_id(),
-              assigned_mineral_id
-            );
-          }
+          println!(
+            "Worker {} cannot reach resource {}, attempting reassignment",
+            worker.get_id(),
+            assigned_mineral_id
+          );
+          return true; // Signal to clear this assignment so it can be reassigned
         }
       }
     }
@@ -367,17 +368,12 @@ fn enforce_gathering_assignment(
         Ok(_) => {}
         Err(e) => {
           if e == Error::Unreachable_Location {
-            let mineral_pos = mineral.get_position();
-            if let Some(nearest_base) = find_nearest_base(mineral_pos, base_locations) {
-              let base_pos = Position::new(nearest_base.x * 32 + 64, nearest_base.y * 32 + 48);
-              let move_target = Position::new(base_pos.x + 96, base_pos.y);
-              let _ = worker.move_(move_target);
-              println!(
-                "Worker {} moving closer to base before gathering from unreachable resource {}",
-                worker.get_id(),
-                assigned_mineral_id
-              );
-            }
+            println!(
+              "Worker {} cannot reach resource {}, will be reassigned",
+              worker.get_id(),
+              assigned_mineral_id
+            );
+            return true; // Signal to clear this assignment so it can be reassigned
           }
         }
       }
@@ -660,6 +656,76 @@ fn find_least_saturated_mineral<'a>(
     .filter(|(_, count)| *count < max_workers)
     .min_by_key(|(_, count)| *count)
     .map(|(mineral, _)| *mineral)
+}
+
+fn assign_worker_to_other_resource(
+  game: &Game,
+  worker_id: usize,
+  assignments: &mut HashMap<usize, WorkerAssignment>,
+  minerals: &[&Unit],
+  extractors: &[Unit],
+) -> bool {
+  let mineral_worker_count = count_workers_per_resource(assignments);
+  
+  // Get all hatcheries and lairs
+  let bases: Vec<Unit> = game
+    .get_all_units()
+    .into_iter()
+    .filter(|u| {
+      let unit_type = u.get_type();
+      (unit_type == UnitType::Zerg_Hatchery
+        || unit_type == UnitType::Zerg_Lair
+        || unit_type == UnitType::Zerg_Hive)
+        && u.get_player().get_id() == game.self_().map(|p| p.get_id()).unwrap_or(0)
+        && u.is_completed()
+    })
+    .collect();
+  
+  // Try to find an extractor with less than 2 workers
+  let undersaturated_extractor = extractors.iter().find(|extractor| {
+    let extractor_id = extractor.get_id();
+    let worker_count = mineral_worker_count.get(&extractor_id).copied().unwrap_or(0);
+    worker_count < 2
+  });
+  
+  if let Some(extractor) = undersaturated_extractor {
+    let extractor_id = extractor.get_id();
+    assignments.insert(worker_id, WorkerAssignment::gathering(extractor_id));
+    println!(
+      "Worker {} reassigned to extractor {} (was unreachable)",
+      worker_id, extractor_id
+    );
+    return true;
+  }
+  
+  // Filter minerals to only those near a base (within 12 tiles)
+  let minerals_near_bases: Vec<&Unit> = minerals
+    .iter()
+    .filter(|mineral| {
+      let mineral_pos = mineral.get_position();
+      bases.iter().any(|base| {
+        let base_pos = base.get_position();
+        let dx = (mineral_pos.x - base_pos.x) as f32;
+        let dy = (mineral_pos.y - base_pos.y) as f32;
+        let distance = (dx * dx + dy * dy).sqrt();
+        distance <= 12.0 * 32.0
+      })
+    })
+    .copied()
+    .collect();
+  
+  // Try to find a mineral with less than 2 workers near a base
+  if let Some(mineral) = find_least_saturated_mineral(&minerals_near_bases, &mineral_worker_count, 2) {
+    let mineral_id = mineral.get_id();
+    assignments.insert(worker_id, WorkerAssignment::gathering(mineral_id));
+    println!(
+      "Worker {} reassigned to mineral {} near base (was unreachable)",
+      worker_id, mineral_id
+    );
+    return true;
+  }
+  
+  false
 }
 
 pub fn draw_worker_resource_lines(

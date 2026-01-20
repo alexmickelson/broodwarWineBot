@@ -62,6 +62,7 @@ pub fn create_squad(
       target_path: None,
       target_path_index: None,
       leader_unit_id: None,
+      required_units_near_leader: 5,
       unit_path_assignments: std::collections::HashMap::new(),
     },
     SquadRole::Defend => {
@@ -83,6 +84,7 @@ pub fn create_squad(
         target_path: None,
         target_path_index: None,
         leader_unit_id: None,
+        required_units_near_leader: 5,
         unit_path_assignments: std::collections::HashMap::new(),
       }
     }
@@ -245,7 +247,7 @@ pub fn draw_military_assignments(game: &Game, game_state: &GameState) {
       match unit_order {
         Order::Move | Order::AttackMove => {
           if let Some(order_target_pos) = unit.get_order_target_position() {
-            game.draw_line_map(unit_pos, order_target_pos, Color::Cyan);
+            game.draw_line_map(unit_pos, order_target_pos, Color::Red);
           }
         }
         Order::AttackUnit => {
