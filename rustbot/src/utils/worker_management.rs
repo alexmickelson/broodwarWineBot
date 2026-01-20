@@ -27,34 +27,70 @@ pub fn update_assignments(game: &Game, game_state: &mut GameState) {
 
   remove_dead_workers(&mut assignments, &workers);
 
-  let start_location = game
-    .self_()
-    .and_then(|p: Player| {
-      let start_locations = game.get_start_locations();
-      start_locations.get(p.get_id() as usize).copied()
-    })
-    .expect("Failed to get start location");
+  let mut claimed_base_indices = std::collections::HashSet::new();
+  claimed_base_indices.insert(0); // Main base is always claimed
+  
+  for (idx, item) in game_state.build_order.iter().enumerate() {
+    if idx >= game_state.build_order_index {
+      break; // Only look at completed items
+    }
+    if let BuildOrderItem::Unit { unit_type, base_index } = item {
+      if *unit_type == UnitType::Zerg_Hatchery {
+        if let Some(base_idx) = base_index {
+          claimed_base_indices.insert(*base_idx);
+        }
+      }
+    }
+  }
 
+  // Collect minerals and extractors from all claimed bases
   let static_minerals = game.get_static_minerals();
-  let minerals: Vec<_> = static_minerals
-    .iter()
-    .filter(|m: &&Unit| {
-      let start_pos = Position::new(start_location.x * 32 + 16, start_location.y * 32 + 16);
-      let mineral_pos = m.get_position();
-      let dx = (mineral_pos.x - start_pos.x) as f32;
-      let dy = (mineral_pos.y - start_pos.y) as f32;
-      let distance = (dx * dx + dy * dy).sqrt();
-      distance <= 10.0 * 32.0
-    })
-    .collect();
+  let mut minerals: Vec<&Unit> = Vec::new();
+  
+  for &base_idx in &claimed_base_indices {
+    if let Some(base_location) = game_state.base_locations.get(base_idx) {
+      let base_pos = Position::new(base_location.x * 32 + 64, base_location.y * 32 + 48);
+      
+      let base_minerals: Vec<_> = static_minerals
+        .iter()
+        .filter(|m| {
+          let mineral_pos = m.get_position();
+          let dx = (mineral_pos.x - base_pos.x) as f32;
+          let dy = (mineral_pos.y - base_pos.y) as f32;
+          let distance = (dx * dx + dy * dy).sqrt();
+          distance <= 12.0 * 32.0
+        })
+        .collect();
+      
+      minerals.extend(base_minerals);
+    }
+  }
 
   let extractors: Vec<_> = game
     .get_all_units()
     .into_iter()
     .filter(|u| {
-      u.get_type() == UnitType::Zerg_Extractor
-        && u.get_player().get_id() == game.self_().map(|p| p.get_id()).unwrap_or(0)
-        && u.is_completed()
+      if u.get_type() != UnitType::Zerg_Extractor
+        || u.get_player().get_id() != game.self_().map(|p| p.get_id()).unwrap_or(0)
+        || !u.is_completed()
+      {
+        return false;
+      }
+      
+      // Check if extractor is near any claimed base
+      let extractor_pos = u.get_position();
+      for &base_idx in &claimed_base_indices {
+        if let Some(base_location) = game_state.base_locations.get(base_idx) {
+          let base_pos = Position::new(base_location.x * 32 + 64, base_location.y * 32 + 48);
+          let dx = (extractor_pos.x - base_pos.x) as f32;
+          let dy = (extractor_pos.y - base_pos.y) as f32;
+          let distance = (dx * dx + dy * dy).sqrt();
+          if distance <= 12.0 * 32.0 {
+            return true;
+          }
+        }
+      }
+      false
     })
     .collect();
 
@@ -66,6 +102,10 @@ pub fn update_assignments(game: &Game, game_state: &mut GameState) {
 
   let mut mineral_worker_count = count_workers_per_resource(&assignments);
 
+  // Determine extractor saturation based on worker count
+  let total_workers = workers.len();
+  let extractor_saturation = if total_workers > 22 { 3 } else { 2 };
+
   for worker in unassigned_idle_workers {
     let undersaturated_extractor = extractors.iter().find(|extractor| {
       let extractor_id = extractor.get_id();
@@ -76,7 +116,7 @@ pub fn update_assignments(game: &Game, game_state: &mut GameState) {
             && a.target_unit == Some(extractor_id)
         })
         .count();
-      worker_count < 2
+      worker_count < extractor_saturation
     });
 
     if let Some(extractor) = undersaturated_extractor {
@@ -104,7 +144,7 @@ pub fn update_assignments(game: &Game, game_state: &mut GameState) {
       })
       .count();
 
-    if worker_count < 2 {
+    if worker_count < extractor_saturation {
       // Find a worker assigned to minerals
       let worker_to_reassign = assignments.iter().find_map(|(worker_id, assignment)| {
         if assignment.assignment_type == WorkerAssignmentType::Gathering {
@@ -185,6 +225,7 @@ fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerA
   if worker_order == Order::ReturnMinerals
     || worker_order == Order::ReturnGas
     || worker_order == Order::ResetCollision
+    || worker_order == Order::Move
   {
     return;
   }
@@ -195,7 +236,21 @@ fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerA
   };
 
   if worker_order == Order::PlayerGuard || worker_order == Order::Stop {
-    let _ = worker.gather(&mineral);
+    match worker.gather(&mineral) {
+      Ok(_) => {
+        println!("Worker {} was {:?}, issued gather command to resource {}", worker.get_id(), worker_order, assigned_mineral_id);
+      }
+      Err(e) => {
+        println!("Worker {} failed to gather from resource {}: {:?}", worker.get_id(), assigned_mineral_id, e);
+        
+        // If unreachable, move worker closer to the resource
+        if e == Error::Unreachable_Location {
+          let mineral_pos = mineral.get_position();
+          let _ = worker.move_(mineral_pos);
+          println!("Worker {} moving closer to unreachable resource {}", worker.get_id(), assigned_mineral_id);
+        }
+      }
+    }
     return;
   }
 
@@ -217,7 +272,16 @@ fn enforce_gathering_assignment(game: &Game, worker: &Unit, assignment: &WorkerA
 
     if target.get_id() != assigned_mineral_id {
       // println!("worker mining the wrong mineral patch, reissuing gather command");
-      let _ = worker.gather(&mineral);
+      match worker.gather(&mineral) {
+        Ok(_) => {}
+        Err(e) => {
+          if e == Error::Unreachable_Location {
+            let mineral_pos = mineral.get_position();
+            let _ = worker.move_(mineral_pos);
+            println!("Worker {} moving closer to unreachable resource {}", worker.get_id(), assigned_mineral_id);
+          }
+        }
+      }
     }
     return;
   }
@@ -396,7 +460,6 @@ fn enforce_building_assignment(
     return;
   }
 
-  // if !game.is_explored(pos) {
   if !game.can_build_here(worker, pos, *building_type, true).unwrap_or(false) {
     game.draw_text_screen(
       (0, 10),
@@ -423,10 +486,10 @@ fn enforce_building_assignment(
   let build_successful = worker.build(*building_type, pos);
   match build_successful {
     Ok(true) => {
-      println!(
-        "Worker {} successfully issued build command for {:?} at ({}, {})",
-        worker_id, building_type, pos.x, pos.y
-      );
+      // println!(
+      //   "Worker {} successfully issued build command for {:?} at ({}, {})",
+      //   worker_id, building_type, pos.x, pos.y
+      // );
     }
     Ok(false) => {
       println!(

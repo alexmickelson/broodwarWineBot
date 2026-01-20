@@ -84,7 +84,8 @@ pub fn make_assignment_for_current_build_order_item(game: &Game, game_state: &mu
         return;
       };
 
-      let new_squad = military_management::create_squad(game, &name, role, status, &self_player);
+      let new_squad =
+        military_management::create_squad(game, &name, role, status, &self_player, game_state);
       game_state.military_squads.push(new_squad);
       advance_build_order(game, game_state, &format!("Squad {} created", name));
     }
@@ -97,7 +98,8 @@ pub fn build_order_enforce_assignments(game: &Game, game_state: &mut GameState) 
     return;
   };
   if game_state.build_order_index >= game_state.build_order.len() {
-    println!("nothing to build");
+    // println!("nothing to build");
+    figure_out_what_to_build(game, game_state);
     return;
   }
 
@@ -182,50 +184,80 @@ pub fn remove_drone_assignment_after_started_buidling(
   }
 }
 
-// fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
-//   let Some(player) = game.self_() else {
-//     println!("Failed to get self player in figure_out_what_to_build");
-//     return;
-//   };
-//   let supply_total = player.supply_total() / 2;
-//   let supply_used = player.supply_used() / 2;
-//   let supply_remaining = supply_total - supply_used;
+fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
+  let Some(player) = game.self_() else {
+    println!("Failed to get self player in figure_out_what_to_build");
+    return;
+  };
+  let supply_total = player.supply_total() / 2;
+  let supply_used = player.supply_used() / 2;
+  let supply_remaining = supply_total - supply_used;
 
-//   let overlords_in_production = game
-//     .get_all_units()
-//     .into_iter()
-//     .filter(|u| {
-//       u.get_type() == UnitType::Zerg_Egg
-//         && u.get_player().get_id() == player.get_id()
-//         && u.get_build_type() == UnitType::Zerg_Overlord
-//     })
-//     .count();
+  let overlords_in_production = game
+    .get_all_units()
+    .into_iter()
+    .filter(|u| {
+      u.get_type() == UnitType::Zerg_Egg
+        && u.get_player().get_id() == player.get_id()
+        && u.get_build_type() == UnitType::Zerg_Overlord
+    })
+    .count();
 
-//   if supply_remaining < 4 && overlords_in_production == 0 {
-//     println!(
-//       "queuing overlord because supply is {} and overlords in production is {}",
-//       supply_remaining, overlords_in_production
-//     );
-//     game_state
-//       .build_order
-//       .push(BuildOrderItem::Unit(UnitType::Zerg_Overlord));
-//     return;
-//   }
+  if supply_remaining < 5 && overlords_in_production == 0 {
+    println!(
+      "queuing overlord because supply is {} and overlords in production is {}",
+      supply_remaining, overlords_in_production
+    );
+    game_state
+      .build_order
+      .push(BuildOrderItem::unit(UnitType::Zerg_Overlord));
+    return;
+  }
 
-//   let total_drones = game
-//     .get_all_units()
-//     .into_iter()
-//     .filter(|u| u.get_type() == UnitType::Zerg_Drone && u.get_player().get_id() == player.get_id())
-//     .count();
-//   if total_drones < 20 {
-//     println!("queuing drone because total drones is {}", total_drones);
-//     game_state
-//       .build_order
-//       .push(BuildOrderItem::Unit(UnitType::Zerg_Drone));
-//   } else {
-//     println!("queuing zergling");
-//     game_state
-//       .build_order
-//       .push(BuildOrderItem::Unit(UnitType::Zerg_Zergling));
-//   }
-// }
+  let total_drones = game
+    .get_all_units()
+    .into_iter()
+    .filter(|u| u.get_type() == UnitType::Zerg_Drone && u.get_player().get_id() == player.get_id())
+    .count();
+
+  if total_drones < 40 {
+    // Check if the last item was a drone
+    let last_was_drone = game_state
+      .build_order
+      .last()
+      .map(|item| {
+        if let BuildOrderItem::Unit { unit_type, .. } = item {
+          *unit_type == UnitType::Zerg_Drone
+        } else {
+          false
+        }
+      })
+      .unwrap_or(false);
+    
+    if !last_was_drone {
+      println!("queuing drone because total drones is {}", total_drones);
+      game_state
+        .build_order
+        .push(BuildOrderItem::unit(UnitType::Zerg_Drone));
+      return;
+    }
+  }
+
+  // Build the last unit type from the build order (excluding overlords and buildings)
+  let last_unit = game_state
+    .build_order
+    .iter()
+    .rev()
+    .find_map(|item| {
+      if let BuildOrderItem::Unit { unit_type, .. } = item {
+        if *unit_type != UnitType::Zerg_Overlord && !unit_type.is_building() {
+          return Some(*unit_type);
+        }
+      }
+      None
+    })
+    .unwrap_or(UnitType::Zerg_Zergling);
+
+  println!("queuing {:?}", last_unit);
+  game_state.build_order.push(BuildOrderItem::unit(last_unit));
+}

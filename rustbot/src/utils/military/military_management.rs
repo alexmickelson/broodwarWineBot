@@ -2,11 +2,10 @@ use crate::utils::{
   game_state::GameState,
   map_utils::pathing,
   military::{
-    squad_attack_workers::{
-      self, attack_nearby_worker, create_initial_attack_workers_squad, get_enemies_within,
-      get_worker_enemies_within, move_to_target, ThreatAvoidanceMode,
-    },
+    squad_attack_workers::{self, ThreatAvoidanceMode},
+    squad_defend,
     squad_models::{MilitarySquad, SquadRole, SquadStatus},
+    squad_mutas,
   },
 };
 use rsbwapi::*;
@@ -44,16 +43,16 @@ pub fn remove_unit_from_squads(unit: &Unit, game_state: &mut GameState) {
     let _ = squad.assigned_unit_ids.remove(&unit_id);
   }
 }
-
 pub fn create_squad(
   game: &Game,
   name: &str,
   role: SquadRole,
   status: SquadStatus,
   self_player: &Player,
+  game_state: &mut GameState,
 ) -> MilitarySquad {
   return match role {
-    SquadRole::Attack | SquadRole::Defend => MilitarySquad {
+    SquadRole::AttackAsMutas => MilitarySquad {
       name: name.to_string(),
       role,
       status,
@@ -61,68 +60,42 @@ pub fn create_squad(
       target_position: None,
       target_path: None,
       target_path_index: None,
+      unit_path_assignments: std::collections::HashMap::new(),
     },
-    SquadRole::AttackWorkers => {
-      squad_attack_workers::create_initial_attack_workers_squad(game, &self_player)
+    SquadRole::Defend => {
+      let target_position = squad_defend::calculate_defense_point(game, game_state, self_player);
+
+      if target_position.is_none() {
+        println!(
+          "No defense point found for defend squad {}, creating empty squad",
+          name
+        );
+      }
+
+      MilitarySquad {
+        name: name.to_string(),
+        role,
+        status,
+        assigned_unit_ids: std::collections::HashSet::new(),
+        target_position,
+        target_path: None,
+        target_path_index: None,
+        unit_path_assignments: std::collections::HashMap::new(),
+      }
     }
+    SquadRole::AttackWorkers => squad_attack_workers::attack_workers_squad(game, &self_player),
   };
 }
 
 fn update_squads(game: &Game, game_state: &mut GameState) {
   for squad in game_state.military_squads.iter_mut() {
-    if let (Some(ref path), Some(index)) = (&squad.target_path, squad.target_path_index) {
-      if index < path.len() {
-        squad.target_position = Some(path[index]);
-      }
-    }
-
-    if squad.target_position.is_none() {
-      println!(
-        "Squad {} has no target position, skipping update",
-        squad.name
-      );
-      continue;
-    }
-
-    let squad_units: Vec<Unit> = squad
-      .assigned_unit_ids
-      .iter()
-      .filter_map(|&unit_id| game.get_unit(unit_id))
-      .collect();
-    let squad_count_close_to_target =
-      get_units_close_to_position(&squad_units, squad.target_position.unwrap(), 80.0);
-
     match squad.role {
-      SquadRole::Attack => {}
+      SquadRole::AttackAsMutas => {
+        squad_mutas::muta_squad_control(game, squad);
+      }
       SquadRole::Defend => {}
       SquadRole::AttackWorkers => {
-        if squad_count_close_to_target < 4 {
-          // println!(
-          //   "Squad {} not ready to attack: {} units close to target (need 6)",
-          //   squad.name, squad_count_close_to_target
-          // );
-          continue;
-        }
-
-        let Some(ref path) = squad.target_path else {
-          println!(
-            "Squad {} cannot switch to attacking: no target path",
-            squad.name
-          );
-          continue;
-        };
-
-        if path.is_empty() {
-          println!(
-            "Squad {} cannot switch to attacking: path is empty",
-            squad.name
-          );
-          continue;
-        }
-
-        squad.status = SquadStatus::Attacking;
-        squad.target_path_index = Some(path.len() - 1);
-        squad.target_position = Some(path[path.len() - 1]);
+        squad_attack_workers::update_attack_workers_squad(game, squad);
       }
     }
   }
@@ -131,7 +104,7 @@ fn update_squads(game: &Game, game_state: &mut GameState) {
 fn enforce_military_assignments(game: &Game, game_state: &mut GameState) {
   for squad in game_state.military_squads.iter_mut() {
     let enemy_workers_close_to_squad = if let Some((target_x, target_y)) = squad.target_position {
-      get_worker_enemies_within(
+      squad_attack_workers::get_worker_enemies_within(
         game,
         Position::new(target_x, target_y),
         200.0,
@@ -158,12 +131,23 @@ fn unit_in_squad_control(
   enemy_workers_close_to_squad: &[Unit],
 ) {
   match squad.role {
-    SquadRole::Attack => {}
-    SquadRole::Defend => {}
+    SquadRole::AttackAsMutas => {
+      squad_mutas::muta_unit_control(game, unit, squad);
+    }
+    SquadRole::Defend => {
+      let Some((target_x, target_y)) = squad.target_position else {
+        return;
+      };
+      squad_defend::defend_unit_control(game, unit, (target_x, target_y));
+    }
     SquadRole::AttackWorkers => match squad.status {
       SquadStatus::Gathering => {
-        let nearby_enemies =
-          get_enemies_within(game, unit.get_position(), 80.0, unit.get_player().get_id());
+        let nearby_enemies = squad_attack_workers::get_enemies_within(
+          game,
+          unit.get_position(),
+          80.0,
+          unit.get_player().get_id(),
+        );
         if let Some(closest_enemy) = nearby_enemies.first() {
           let unit_order = unit.get_order();
           let order_target = unit.get_target();
@@ -204,7 +188,7 @@ fn unit_in_squad_control(
         }
       }
       SquadStatus::Attacking => {
-        if attack_nearby_worker(game, unit, enemy_workers_close_to_squad) {
+        if squad_attack_workers::attack_nearby_worker(game, unit, enemy_workers_close_to_squad) {
           return;
         }
 
@@ -212,37 +196,29 @@ fn unit_in_squad_control(
           return;
         };
 
-        squad_attack_workers::handle_threat_avoidance(
+        // Only move to target if threat avoidance doesn't handle it
+        let handled_by_threat_avoidance = squad_attack_workers::handle_threat_avoidance(
           game,
           unit,
           Some((target_x, target_y)),
           ThreatAvoidanceMode::Aggressive,
         );
 
-        move_to_target(unit, target_x, target_y);
+        if !handled_by_threat_avoidance {
+          squad_attack_workers::move_to_target(unit, target_x, target_y);
+        }
       }
     },
   }
 }
 
-fn get_units_close_to_position(units: &[Unit], position: (i32, i32), radius: f32) -> usize {
-  let pos = Position::new(position.0, position.1);
-  let radius_squared = radius * radius;
-
-  units
-    .iter()
-    .filter(|u| {
-      let unit_pos = u.get_position();
-      let dx = (unit_pos.x - pos.x) as f32;
-      let dy = (unit_pos.y - pos.y) as f32;
-      let distance_squared = dx * dx + dy * dy;
-      distance_squared <= radius_squared
-    })
-    .count()
-}
-
 pub fn draw_military_assignments(game: &Game, game_state: &GameState) {
   for squad in &game_state.military_squads {
+    if let Some((target_x, target_y)) = squad.target_position {
+      let target_pos = Position::new(target_x, target_y);
+      game.draw_circle_map(target_pos, 8, Color::Red, false);
+    }
+
     if let Some(target_path) = squad.target_path.as_ref() {
       pathing::draw_path(game, target_path);
 

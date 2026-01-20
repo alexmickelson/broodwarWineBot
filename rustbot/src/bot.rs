@@ -4,7 +4,7 @@ use crate::utils::build_orders::pool_speed_expand;
 use crate::utils::building_stuff::{creature_stuff, expansion_location_stuff, researching_stuff};
 use crate::utils::game_state::{DebugFlag, GameState, SharedGameState};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
-use crate::utils::map_utils::{pathing, region_stuff};
+use crate::utils::map_utils::region_stuff;
 use crate::utils::military::military_management;
 use crate::utils::worker_management;
 use rsbwapi::*;

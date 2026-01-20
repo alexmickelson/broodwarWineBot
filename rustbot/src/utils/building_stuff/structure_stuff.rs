@@ -59,6 +59,18 @@ fn assign_building_to_morph_into_building(
   builder_type: UnitType,
   current_build_idx: usize,
 ) -> bool {
+  // Get the preferred base index from the build order item
+  let base_index = game_state
+    .build_order
+    .get(current_build_idx)
+    .and_then(|item| {
+      if let crate::utils::build_orders::build_order_item::BuildOrderItem::Unit { base_index, .. } = item {
+        *base_index
+      } else {
+        None
+      }
+    });
+
   // Find all buildings of the required type
   let all_buildings_of_type: Vec<_> = game.get_all_units()
     .into_iter()
@@ -69,11 +81,12 @@ fn assign_building_to_morph_into_building(
     .collect();
 
   println!(
-    "Looking for {:?} to morph into {:?}. Found {} total buildings of type {:?}",
+    "Looking for {:?} to morph into {:?}. Found {} total buildings of type {:?}, preferred base_index: {:?}",
     builder_type,
     unit_type,
     all_buildings_of_type.len(),
-    builder_type
+    builder_type,
+    base_index
   );
 
   // Check which ones are completed
@@ -92,31 +105,74 @@ fn assign_building_to_morph_into_building(
 
   println!("  {} completed are already assigned", assigned_completed.len());
 
-  // First try to find a completed, unassigned building
-  let building_of_type = completed_buildings
-    .into_iter()
-    .find(|u| !game_state.building_assignments.contains_key(&u.get_id()))
-    .or_else(|| {
-      // If no completed buildings are available, try to find an uncompleted, unassigned one
-      println!("  No completed unassigned buildings, looking for uncompleted ones...");
-      let uncompleted_buildings: Vec<_> = all_buildings_of_type
-        .iter()
-        .filter(|u| !u.is_completed())
-        .collect();
-      
-      println!("  {} are uncompleted", uncompleted_buildings.len());
-      
-      let assigned_uncompleted: Vec<_> = uncompleted_buildings
-        .iter()
-        .filter(|u| game_state.building_assignments.contains_key(&u.get_id()))
-        .collect();
-      
-      println!("  {} uncompleted are already assigned", assigned_uncompleted.len());
-      
+  // Helper function to find closest building to a base location
+  let find_closest_to_base = |buildings: Vec<&Unit>, base_idx: usize| -> Option<Unit> {
+    let base_tile = game_state.base_locations.get(base_idx)?;
+    let base_pos = Position::new(base_tile.x * 32 + 64, base_tile.y * 32 + 48); // Center of hatchery (4x3 tiles)
+    
+    buildings
+      .into_iter()
+      .filter(|u| !game_state.building_assignments.contains_key(&u.get_id()))
+      .min_by_key(|u| {
+        let building_pos = u.get_position();
+        let dx = (building_pos.x - base_pos.x) as f32;
+        let dy = (building_pos.y - base_pos.y) as f32;
+        (dx * dx + dy * dy) as i32
+      })
+      .cloned()
+  };
+
+  // First try to find a completed, unassigned building at the preferred base
+  let building_of_type = if let Some(idx) = base_index {
+    println!("  Looking for building at base {}", idx);
+    find_closest_to_base(completed_buildings.clone(), idx)
+      .or_else(|| {
+        println!("  No completed building at preferred base, trying any completed building");
+        completed_buildings
+          .into_iter()
+          .find(|u| !game_state.building_assignments.contains_key(&u.get_id()))
+          .cloned()
+      })
+  } else {
+    completed_buildings
+      .into_iter()
+      .find(|u| !game_state.building_assignments.contains_key(&u.get_id()))
+      .cloned()
+  }
+  .or_else(|| {
+    // If no completed buildings are available, try to find an uncompleted, unassigned one
+    println!("  No completed unassigned buildings, looking for uncompleted ones...");
+    let uncompleted_buildings: Vec<_> = all_buildings_of_type
+      .iter()
+      .filter(|u| !u.is_completed())
+      .collect();
+    
+    println!("  {} are uncompleted", uncompleted_buildings.len());
+    
+    let assigned_uncompleted: Vec<_> = uncompleted_buildings
+      .iter()
+      .filter(|u| game_state.building_assignments.contains_key(&u.get_id()))
+      .collect();
+    
+    println!("  {} uncompleted are already assigned", assigned_uncompleted.len());
+    
+    if let Some(idx) = base_index {
+      println!("  Looking for uncompleted building at base {}", idx);
+      find_closest_to_base(uncompleted_buildings.clone(), idx)
+        .or_else(|| {
+          println!("  No uncompleted building at preferred base, trying any uncompleted building");
+          uncompleted_buildings
+            .into_iter()
+            .find(|u| !game_state.building_assignments.contains_key(&u.get_id()))
+            .cloned()
+        })
+    } else {
       uncompleted_buildings
         .into_iter()
         .find(|u| !game_state.building_assignments.contains_key(&u.get_id()))
-    });
+        .cloned()
+    }
+  });
 
   let Some(building_of_type) = building_of_type else {
     println!(

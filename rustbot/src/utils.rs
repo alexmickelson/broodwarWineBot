@@ -14,7 +14,9 @@ pub mod building_stuff {
 pub mod military {
   pub mod military_management;
   pub mod squad_attack_workers;
+  pub mod squad_defend;
   pub mod squad_models;
+  pub mod squad_mutas;
 }
 
 pub mod map_utils {

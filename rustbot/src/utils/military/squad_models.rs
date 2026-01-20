@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -11,11 +11,13 @@ pub struct MilitarySquad {
   pub target_position: Option<(i32, i32)>,
   pub target_path: Option<Vec<(i32, i32)>>,
   pub target_path_index: Option<usize>,
+  #[serde(skip)]
+  pub unit_path_assignments: HashMap<usize, (Vec<(i32, i32)>, usize)>, // (path, current_index)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SquadRole {
-  Attack,
+  AttackAsMutas,
   Defend,
   AttackWorkers,
 }

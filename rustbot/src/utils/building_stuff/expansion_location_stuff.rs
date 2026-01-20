@@ -178,7 +178,7 @@ fn is_hatchery_too_close_to_resources(
 fn find_best_hatchery_location(
   game: &Game,
   resources: &[Unit],
-  debug_lines: &mut Vec<(Position, Position, Color)>,
+  _debug_lines: &mut Vec<(Position, Position, Color)>,
 ) -> Option<TilePosition> {
   if resources.is_empty() {
     return None;
