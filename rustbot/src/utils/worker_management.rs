@@ -3,6 +3,7 @@ use crate::utils::{
   building_stuff::build_location_utils,
   game_state::{GameState, WorkerAssignment, WorkerAssignmentType},
 };
+use rand::seq::SliceRandom;
 use rsbwapi::*;
 use std::collections::HashMap;
 
@@ -658,6 +659,38 @@ fn find_least_saturated_mineral<'a>(
     .map(|(mineral, _)| *mineral)
 }
 
+fn find_random_least_saturated_mineral<'a>(
+  minerals: &[&'a Unit],
+  mineral_worker_count: &HashMap<usize, usize>,
+  max_workers: usize,
+) -> Option<&'a Unit> {
+  let eligible: Vec<_> = minerals
+    .iter()
+    .map(|m| {
+      let count = mineral_worker_count.get(&m.get_id()).copied().unwrap_or(0);
+      (m, count)
+    })
+    .filter(|(_, count)| *count < max_workers)
+    .collect();
+  
+  if eligible.is_empty() {
+    return None;
+  }
+  
+  // Find minimum saturation level
+  let min_count = eligible.iter().map(|(_, count)| *count).min()?;
+  
+  // Get all minerals with minimum saturation
+  let min_saturated: Vec<_> = eligible
+    .into_iter()
+    .filter(|(_, count)| *count == min_count)
+    .map(|(mineral, _)| *mineral)
+    .collect();
+  
+  // Pick randomly from least saturated minerals
+  min_saturated.choose(&mut rand::thread_rng()).copied()
+}
+
 fn assign_worker_to_other_resource(
   game: &Game,
   worker_id: usize,
@@ -714,8 +747,8 @@ fn assign_worker_to_other_resource(
     .copied()
     .collect();
   
-  // Try to find a mineral with less than 2 workers near a base
-  if let Some(mineral) = find_least_saturated_mineral(&minerals_near_bases, &mineral_worker_count, 2) {
+  // Try to find a mineral with less than 2 workers near a base (pick randomly to avoid gridlocks)
+  if let Some(mineral) = find_random_least_saturated_mineral(&minerals_near_bases, &mineral_worker_count, 2) {
     let mineral_id = mineral.get_id();
     assignments.insert(worker_id, WorkerAssignment::gathering(mineral_id));
     println!(

@@ -170,7 +170,7 @@ fn get_leading_group_center(
 
   // If leader died, increase required units near leader
   if leader_changed {
-    squad.required_units_near_leader += 10;
+    squad.required_units_near_leader = (squad.required_units_near_leader + 10).min(60);
     println!(
       "Leader died! Increasing required units near leader to {}",
       squad.required_units_near_leader
@@ -383,6 +383,14 @@ fn should_retreat(units_close_to_target: usize, index: usize, path: &[(i32, i32)
 }
 
 fn check_leader_has_enough_units(game: &Game, squad: &MilitarySquad, squad_units: &[Unit]) -> bool {
+  // If supply is over 150, ignore leader requirements
+  if let Some(player) = game.self_() {
+    let supply_used = player.supply_used() / 2;
+    if supply_used > 150 {
+      return true;
+    }
+  }
+
   let Some(leader_id) = squad.leader_unit_id else {
     return false;
   };

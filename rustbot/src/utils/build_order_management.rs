@@ -184,6 +184,46 @@ pub fn remove_drone_assignment_after_started_buidling(
   }
 }
 
+/// Returns a list of upgrades that would benefit the given unit type
+fn get_relevant_upgrades_for_unit(unit_type: UnitType) -> Vec<UpgradeType> {
+  let mut upgrades = Vec::new();
+  
+  // Check if unit is a flyer
+  if unit_type.is_flyer() {
+    upgrades.push(UpgradeType::Zerg_Flyer_Attacks);
+    upgrades.push(UpgradeType::Zerg_Flyer_Carapace);
+  }
+  
+  // Check weapon types for ground units
+  let ground_weapon = unit_type.ground_weapon();
+  let air_weapon = unit_type.air_weapon();
+  
+  // For non-flyers with weapons
+  if !unit_type.is_flyer() {
+    // Check for melee attacks (range <= 32 pixels, which is close range)
+    if ground_weapon != WeaponType::None && ground_weapon.max_range() <= 32 {
+      upgrades.push(UpgradeType::Zerg_Melee_Attacks);
+    }
+    
+    // Check for ranged attacks
+    if ground_weapon != WeaponType::None && ground_weapon.max_range() > 32 {
+      upgrades.push(UpgradeType::Zerg_Missile_Attacks);
+    }
+    
+    // Also check air weapon for ranged
+    if air_weapon != WeaponType::None {
+      upgrades.push(UpgradeType::Zerg_Missile_Attacks);
+    }
+    
+    // Add carapace for all non-flying combat units
+    if ground_weapon != WeaponType::None || air_weapon != WeaponType::None {
+      upgrades.push(UpgradeType::Zerg_Carapace);
+    }
+  }
+  
+  upgrades
+}
+
 fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
   let Some(player) = game.self_() else {
     println!("Failed to get self player in figure_out_what_to_build");
@@ -250,7 +290,6 @@ fn figure_out_what_to_build(game: &Game, game_state: &mut GameState) {
       return;
     }
   }
-
   // Build the last unit type from the build order (excluding overlords, drones, and buildings)
   let last_unit = game_state
     .build_order
