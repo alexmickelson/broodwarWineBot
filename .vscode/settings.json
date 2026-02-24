@@ -48,7 +48,9 @@
   "rust-analyzer.check.allTargets": false,
   "rust-analyzer.check.features": "all",
   "cSpell.words": [
+    "chokepoint",
     "onframe",
+    "pathing",
     "Protoss",
     "rsbwapi",
     "Zerg",

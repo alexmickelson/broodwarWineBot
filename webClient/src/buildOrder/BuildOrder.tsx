@@ -1,74 +1,112 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useBuildOrder } from "./buildOrderHooks";
-import { ExpandableSection } from "../components/ExpandableSection";
 import { LoadingState } from "../components/LoadingState";
 import { EmptyState } from "../components/EmptyState";
-import type { BuildOrderSnapshot } from "./buildOrderService";
+import type { BuildOrderSnapshot, BuildOrderItem } from "./buildOrderService";
+
+function getItemDisplayName(item: BuildOrderItem): string {
+  if (item.type === 'Unit') {
+    const name = item.unit_type.replace(/^(Terran|Protoss|Zerg)_/, "");
+    return item.base_index !== null ? `${name} @base${item.base_index}` : name;
+  } else if (item.type === 'Upgrade') {
+    return item.upgrade_type.replace(/^(Terran|Protoss|Zerg)_/, "");
+  } else if (item.type === 'Squad') {
+    return `${item.name} (${item.role})`;
+  }
+  return "Unknown";
+}
+
+function getItemType(item: BuildOrderItem): string {
+  return item.type;
+}
 
 export const BuildOrder: React.FC = () => {
   const { data, isLoading, error } = useBuildOrder();
+  const currentItemRef = useRef<HTMLDivElement>(null);
 
-  const renderContent = () => {
-    if (isLoading) {
-      return <LoadingState message="Waiting for build order..." />;
+  // Extract build_order_index for useEffect dependency
+  const buildOrderData = data as BuildOrderSnapshot;
+  const build_order_index = buildOrderData?.build_order_index;
+
+  // Scroll to current item when it changes
+  useEffect(() => {
+    if (currentItemRef.current) {
+      const container = currentItemRef.current.parentElement;
+      if (container) {
+        const itemTop = currentItemRef.current.offsetTop;
+        const itemHeight = currentItemRef.current.offsetHeight;
+        const gap = 8;
+        const targetScroll = itemTop - (itemHeight + gap) * 3;
+        
+        container.scrollTo({
+          top: Math.max(0, targetScroll),
+          behavior: 'smooth',
+        });
+      }
     }
-
-    if (error) {
-      return <EmptyState message={`Error: ${error.message}`} />;
-    }
-
-    const buildOrderData = data as BuildOrderSnapshot;
-
-    if (
-      !buildOrderData ||
-      !buildOrderData.build_order ||
-      buildOrderData.build_order.length === 0
-    ) {
-      return <EmptyState message="No build order set" />;
-    }
-
-    const { build_order, build_order_index } = buildOrderData;
-
-    return (
-      <div className="flex flex-col gap-2">
-        {build_order.map((unit, index) => {
-          const isComplete = index < build_order_index;
-          const isCurrent = index === build_order_index;
-
-          // Skip completed items
-          if (isComplete) return null;
-
-          const displayName = unit.replace(/^(Terran|Protoss|Zerg)_/, "");
-
-          return (
-            <div
-              key={index}
-              className={`flex items-center gap-3 p-3 rounded border ${
-                isCurrent
-                  ? "bg-plasma-500/20 border-plasma-500"
-                  : "bg-void-950 border-plasma-800"
-              }`}
-            >
-              <span className="text-slate-400 font-bold min-w-8">
-                {index + 1}
-              </span>
-              <span
-                className={`font-medium ${
-                  isCurrent ? "text-plasma-500" : "text-lavender-400"
-                }`}
-              >
-                {displayName}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  }, [build_order_index]);
 
   return (
-    <ExpandableSection title="Build Order" defaultExpanded={false}>
-      {renderContent()}
-    </ExpandableSection>
+    <div className="flex flex-col h-full">
+      
+      {isLoading && <LoadingState message="Waiting for build order..." />}
+      
+      {error && <EmptyState message={`Error: ${error.message}`} />}
+      
+      {!isLoading && !error && (!buildOrderData || !buildOrderData.build_order || buildOrderData.build_order.length === 0) && (
+        <EmptyState message="No build order set" />
+      )}
+      
+      {!isLoading && !error && buildOrderData?.build_order && buildOrderData.build_order.length > 0 && (
+        <div className="flex flex-col gap-2 overflow-y-auto p-2">
+          {buildOrderData.build_order.map((item, index) => {
+            const isComplete = index < buildOrderData.build_order_index;
+            const isCurrent = index === buildOrderData.build_order_index;
+
+            const displayName = getItemDisplayName(item);
+            const itemType = getItemType(item);
+
+            return (
+              <div
+                key={index}
+                ref={isCurrent ? currentItemRef : null}
+                className={`flex items-center gap-3 p-3 rounded border ${
+                  isCurrent
+                    ? "bg-plasma-500/20 border-plasma-500"
+                    : isComplete
+                    ? "bg-void-900/50 border-void-700 opacity-60"
+                    : "bg-void-950 border-plasma-800"
+                }`}
+              >
+                <span className={`font-bold min-w-4 ${
+                  isComplete ? "text-slate-600" : "text-slate-600"
+                }`}>
+                  {index + 1}
+                </span>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span
+                    className={`font-medium truncate ${
+                      isCurrent 
+                        ? "text-plasma-500" 
+                        : isComplete
+                        ? "text-slate-600 line-through"
+                        : "text-lavender-400"
+                    }`}
+                  >
+                    {displayName}
+                  </span>
+                  {itemType === 'Upgrade' && (
+                    <span className="text-xs text-slate-500">Upgrade</span>
+                  )}
+                </div>
+                {isComplete && (
+                  <span className="ml-auto text-green-500 text-sm">✓</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 };

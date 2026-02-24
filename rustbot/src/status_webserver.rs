@@ -1,4 +1,5 @@
-use crate::utils::game_state::{BuildOrderItem, DebugFlag, SharedGameState, WorkerAssignment};
+use crate::utils::build_orders::build_order_item::BuildOrderItem;
+use crate::utils::game_state::{DebugFlag, SharedGameState, WorkerAssignment};
 use crate::utils::http_status_callbacks::SharedHttpStatusCallbacks;
 use axum::{
   extract::State,
@@ -255,9 +256,17 @@ async fn larvae_handler(
       for (larva_id, build_order_idx) in &state.larva_responsibilities {
         if let Some(item) = state.build_order.get(*build_order_idx) {
           let detail = match item {
-            crate::utils::game_state::BuildOrderItem::Unit(unit_type) => format!("{:?}", unit_type),
-            crate::utils::game_state::BuildOrderItem::Upgrade(upgrade_type) => {
+            BuildOrderItem::Unit { unit_type, base_index } => {
+              match base_index {
+                Some(idx) => format!("{:?} @base{}", unit_type, idx),
+                None => format!("{:?}", unit_type),
+              }
+            }
+            BuildOrderItem::Upgrade(upgrade_type) => {
               format!("{:?}", upgrade_type)
+            }
+            BuildOrderItem::Squad { name, role, status } => {
+              format!("Squad({}, {:?}, {:?})", name, role, status)
             }
           };
           assignment_details.insert(*larva_id, detail);
@@ -394,8 +403,44 @@ async fn military_assignments_handler(
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[serde(tag = "type", rename_all = "PascalCase")]
+pub enum BuildOrderItemDTO {
+  Unit {
+    unit_type: String,
+    base_index: Option<usize>,
+  },
+  Upgrade {
+    upgrade_type: String,
+  },
+  Squad {
+    name: String,
+    role: String,
+    status: String,
+  },
+}
+
+impl From<&BuildOrderItem> for BuildOrderItemDTO {
+  fn from(item: &BuildOrderItem) -> Self {
+    match item {
+      BuildOrderItem::Unit { unit_type, base_index } => BuildOrderItemDTO::Unit {
+        unit_type: format!("{:?}", unit_type),
+        base_index: *base_index,
+      },
+      BuildOrderItem::Upgrade(upgrade_type) => BuildOrderItemDTO::Upgrade {
+        upgrade_type: format!("{:?}", upgrade_type),
+      },
+      BuildOrderItem::Squad { name, role, status } => BuildOrderItemDTO::Squad {
+        name: name.clone(),
+        role: format!("{:?}", role),
+        status: format!("{:?}", status),
+      },
+    }
+  }
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct BuildOrderSnapshot {
-  pub build_order: Vec<String>,
+  pub build_order: Vec<BuildOrderItemDTO>,
   pub build_order_index: usize,
   pub frame_count: i32,
 }
@@ -411,7 +456,7 @@ async fn build_order_handler(
         build_order: state
           .build_order
           .iter()
-          .map(|ut| format!("{:?}", ut))
+          .map(|item| BuildOrderItemDTO::from(item))
           .collect(),
         build_order_index: state.build_order_index,
         frame_count: _game.get_frame_count(),

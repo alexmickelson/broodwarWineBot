@@ -63,6 +63,49 @@ pub fn chokepoint_to_guard_base(game: &Game, base_location: &Position) -> Option
   })
 }
 
+pub fn chokepoint_along_path(game: &Game, path: &[(i32, i32)]) -> Option<Position> {
+  let mut last_region_id: Option<i32> = None;
+  let mut in_chokepoint = false;
+  let mut last_point_in_chokepoint: Option<(i32, i32)> = None;
+
+  for &(x, y) in path {
+    let pos = Position::new(x, y);
+    let Some(region) = game.get_region_at(pos) else {
+      continue;
+    };
+
+    let region_id = region.get_id();
+
+    // Skip if we're still in the same region and we haven't found a chokepoint yet
+    if !in_chokepoint && last_region_id == Some(region_id) {
+      continue;
+    }
+
+    last_region_id = Some(region_id);
+
+    if region.get_defense_priority() == 2 {
+      if !in_chokepoint {
+        in_chokepoint = true;
+        last_point_in_chokepoint = Some((x, y));
+      } else {
+        last_point_in_chokepoint = Some((x, y));
+      }
+    } else if in_chokepoint {
+      if let Some((last_x, last_y)) = last_point_in_chokepoint {
+        return Some(Position::new(last_x, last_y));
+      }
+    }
+  }
+
+  if in_chokepoint {
+    if let Some((last_x, last_y)) = last_point_in_chokepoint {
+      return Some(Position::new(last_x, last_y));
+    }
+  }
+
+  None
+}
+
 pub fn draw_region_with_defense(game: &Game, region: Region) {
   let left = region.get_bounds_left();
   let top = region.get_bounds_top();

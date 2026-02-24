@@ -13,14 +13,21 @@ const App = () => {
       <div className="max-w-7xl mx-auto h-screen flex flex-col">
         <GameSpeed />
 
-        <div className="flex-1 overflow-y-auto p-5">
-          <WorkerAssignments />
-          <MilitaryAssignments />
-          <LarvaeAssignments />
-          <UnitOrders />
-          <BuildOrder />
-          <DebugFlags />
-          <MapVisualization />
+        <div className="flex-1 flex overflow-hidden">
+          {/* Main content area */}
+          <div className="flex-1 overflow-y-auto p-5">
+            <WorkerAssignments />
+            <MilitaryAssignments />
+            <LarvaeAssignments />
+            <UnitOrders />
+            <DebugFlags />
+            <MapVisualization />
+          </div>
+
+          {/* Right side panel - Build Order */}
+          <div className="w-80 border-l border-plasma-800">
+            <BuildOrder />
+          </div>
         </div>
       </div>
     </div>
