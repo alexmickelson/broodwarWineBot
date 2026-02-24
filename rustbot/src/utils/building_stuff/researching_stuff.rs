@@ -88,11 +88,24 @@ pub fn enforce_upgrade_assignment(
 
   let (building, _assignment) = assigned_building;
   if building.is_upgrading() {
-    println!(
-      "{:?} is already researching an upgrade, waiting for it to finish",
-      building.get_type()
-    );
-    // need to remove building assignmenta dn advance build order
+    let current_upgrade = building.get_upgrade();
+    if current_upgrade == upgrade_to_build {
+      println!(
+        "{:?} is already researching the correct upgrade {:?}, moving to next build order item when done",
+        building.get_type(),
+        upgrade_to_build
+      );
+      remove_building_upgrade_assignment(game_state, &building);
+      game_state.build_order_index += 1;
+    } else {
+      game.draw_text_screen(
+        (0, 60),
+        &format!(
+          "{:?} is already researching an upgrade, waiting for it to finish",
+          building.get_type()
+        ),
+      );
+    }
     return;
   }
 

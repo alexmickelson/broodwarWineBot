@@ -1,5 +1,6 @@
 use crate::utils::building_stuff::{creature_stuff, researching_stuff, structure_stuff};
-use crate::utils::game_state::{BuildOrderItem, GameState};
+use crate::utils::build_order_management::BuildOrderItem;
+use crate::utils::game_state::{GameState};
 use rsbwapi::*;
 
 pub fn build_order_on_unit_started(game: &Game, completed_unit: &Unit, game_state: &mut GameState) {
