@@ -220,6 +220,12 @@ fn unit_in_squad_control(
 }
 
 pub fn draw_military_assignments(game: &Game, game_state: &GameState) {
+  // Draw player names at start locations
+  for (location_key, player_name) in &game_state.start_location_players {
+    let pos = Position::new(location_key.0, location_key.1);
+    game.draw_text_map(pos, player_name);
+  }
+
   for squad in &game_state.military_squads {
     if let Some((target_x, target_y)) = squad.target_position {
       let target_pos = Position::new(target_x, target_y);

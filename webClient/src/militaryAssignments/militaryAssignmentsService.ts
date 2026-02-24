@@ -17,6 +17,7 @@ export interface SquadData {
   target_path: Array<[number, number]> | null;
   target_path_index: number | null;
   target_percentage: number;
+  target_player: string | null;
 }
 
 export interface MilitaryAssignmentsSnapshot {
@@ -46,6 +47,42 @@ export async function updateSquadTargetPercentage(
       body: JSON.stringify({
         squad_name: squadName,
         target_percentage: targetPercentage,
+      }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+}
+
+export interface StartLocationsSnapshot {
+  locations: Record<string, [number, number]>;
+  frame_count: number;
+}
+
+export async function fetchStartLocations(): Promise<string[]> {
+  const response = await fetch(`${BASE_URL}/start-locations`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  const data: StartLocationsSnapshot = await response.json();
+  return Object.keys(data.locations);
+}
+
+export async function updateSquadTargetPlayer(
+  squadName: string,
+  targetPlayer: string,
+): Promise<void> {
+  const response = await fetch(
+    `${BASE_URL}/military-assignments/update-target-player`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        squad_name: squadName,
+        target_player: targetPlayer,
       }),
     },
   );

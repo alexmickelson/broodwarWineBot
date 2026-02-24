@@ -45,6 +45,11 @@ pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStat
       "/military-assignments/update-target-percentage",
       post(update_squad_target_percentage_handler),
     )
+    .route(
+      "/military-assignments/update-target-player",
+      post(update_squad_target_player_handler),
+    )
+    .route("/start-locations", get(start_locations_handler))
     .route("/larvae", get(larvae_handler))
     .route("/build-order", get(build_order_handler))
     .route("/map", get(map_handler))
@@ -288,6 +293,7 @@ pub struct SquadData {
   pub target_path: Option<Vec<(i32, i32)>>,
   pub target_path_index: Option<usize>,
   pub target_percentage: f32,
+  pub target_player: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -327,6 +333,35 @@ async fn military_assignments_handler(
             })
             .collect();
 
+          // Calculate target player based on end of path
+          let target_player = if let Some(ref path) = squad.target_path {
+            if !path.is_empty() {
+              let path_end = path[path.len() - 1];
+              let start_locations = game.get_start_locations();
+
+              // Find closest start location to path end
+              let closest_start = start_locations.iter().min_by_key(|loc| {
+                let loc_pixel_x = loc.x * 32;
+                let loc_pixel_y = loc.y * 32;
+                let dx = loc_pixel_x - path_end.0;
+                let dy = loc_pixel_y - path_end.1;
+                dx * dx + dy * dy
+              });
+
+              // Look up player from start_location_players mapping
+              if let Some(closest) = closest_start {
+                let location_key = (closest.x * 32, closest.y * 32);
+                state.start_location_players.get(&location_key).cloned()
+              } else {
+                None
+              }
+            } else {
+              None
+            }
+          } else {
+            None
+          };
+
           SquadData {
             name: squad.name.clone(),
             role: format!("{:?}", squad.role),
@@ -336,6 +371,7 @@ async fn military_assignments_handler(
             target_path: squad.target_path.clone(),
             target_path_index: squad.target_path_index,
             target_percentage: squad.target_percentage,
+            target_player,
           }
         })
         .collect();
@@ -588,6 +624,34 @@ async fn update_debug_flags_handler(
   }
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct StartLocationsSnapshot {
+  pub locations: HashMap<String, (i32, i32)>,
+  pub frame_count: i32,
+}
+
+async fn start_locations_handler(
+  State((game_state, _)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+) -> impl IntoResponse {
+  if let Ok(state) = game_state.lock() {
+    let locations: HashMap<String, (i32, i32)> = state
+      .start_location_players
+      .iter()
+      .map(|(pos, name)| (name.clone(), *pos))
+      .collect();
+    
+    Json(StartLocationsSnapshot {
+      locations,
+      frame_count: 0,
+    })
+  } else {
+    Json(StartLocationsSnapshot {
+      locations: HashMap::new(),
+      frame_count: -1,
+    })
+  }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct UpdateSquadTargetPercentageRequest {
   pub squad_name: String,
@@ -615,7 +679,7 @@ async fn update_squad_target_percentage_handler(
           let index = ((path.len() - 1) as f32 * squad.target_percentage).round() as usize;
           let index = index.min(path.len() - 1);
           let target_pos = path[index];
-          state.move_screen_position = Some((target_pos.0, target_pos.1 ));
+          state.move_screen_position = Some((target_pos.0, target_pos.1));
         }
       }
       "OK"
@@ -624,5 +688,54 @@ async fn update_squad_target_percentage_handler(
     }
   } else {
     "Error updating squad target percentage"
+  }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateSquadTargetPlayerRequest {
+  pub squad_name: String,
+  pub target_player: String,
+}
+
+async fn update_squad_target_player_handler(
+  State((game_state, _)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+  Json(req): Json<UpdateSquadTargetPlayerRequest>,
+) -> &'static str {
+  if let Ok(mut state) = game_state.lock() {
+    // Find the target location first
+    let target_location = state
+      .start_location_players
+      .iter()
+      .find(|(_, name)| **name == req.target_player)
+      .map(|(pos, _)| *pos);
+
+    if let Some(target_pos) = target_location {
+      // Now find and update the squad
+      if let Some(squad) = state
+        .military_squads
+        .iter_mut()
+        .find(|s| s.name == req.squad_name)
+      {
+        // Set the target position
+        squad.target_position = Some(target_pos);
+        
+        // Clear existing path so it gets recalculated
+        squad.target_path = None;
+        squad.target_path_index = None;
+
+        println!(
+          "Updated squad '{}' to target player '{}' at {:?}",
+          req.squad_name, req.target_player, target_pos
+        );
+
+        "OK"
+      } else {
+        "Squad not found"
+      }
+    } else {
+      "Target player location not found"
+    }
+  } else {
+    "Error updating squad target player"
   }
 }

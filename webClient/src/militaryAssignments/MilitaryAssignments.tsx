@@ -1,5 +1,8 @@
 import React from "react";
-import { useMilitaryAssignments } from "./militaryAssignmentsHooks";
+import {
+  useMilitaryAssignments,
+  useStartLocations,
+} from "./militaryAssignmentsHooks";
 import { ExpandableSection } from "../components/ExpandableSection";
 import { LoadingState } from "../components/LoadingState";
 import { EmptyState } from "../components/EmptyState";
@@ -7,6 +10,7 @@ import { SquadCard } from "./SquadCard";
 
 export const MilitaryAssignments: React.FC = () => {
   const { data: assignments, isLoading, error } = useMilitaryAssignments();
+  const { data: startLocations = [] } = useStartLocations();
 
   const renderContent = () => {
     if (isLoading) {
@@ -22,9 +26,13 @@ export const MilitaryAssignments: React.FC = () => {
     }
 
     return (
-      <div className="">
+      <div className="space-y-4">
         {assignments.squads.map((squad, index) => (
-          <SquadCard key={`${squad.name}-${index}`} squad={squad} />
+          <SquadCard
+            key={`${squad.name}-${index}`}
+            squad={squad}
+            availablePlayers={startLocations}
+          />
         ))}
       </div>
     );

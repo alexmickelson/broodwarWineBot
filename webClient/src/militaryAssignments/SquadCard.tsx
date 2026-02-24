@@ -1,9 +1,15 @@
 import React, { useState } from "react";
 import { UnitInfo } from "./UnitInfo";
 import type { SquadData } from "./militaryAssignmentsService";
-import { updateSquadTargetPercentage } from "./militaryAssignmentsService";
+import {
+  updateSquadTargetPercentage,
+  updateSquadTargetPlayer,
+} from "./militaryAssignmentsService";
 
-export const SquadCard: React.FC<{ squad: SquadData }> = ({ squad }) => {
+export const SquadCard: React.FC<{
+  squad: SquadData;
+  availablePlayers: string[];
+}> = ({ squad, availablePlayers }) => {
   const [localPercentage, setLocalPercentage] = useState(
     squad.target_percentage,
   );
@@ -37,12 +43,25 @@ export const SquadCard: React.FC<{ squad: SquadData }> = ({ squad }) => {
     }
   };
 
+  const handlePlayerSelect = async (player: string) => {
+    try {
+      await updateSquadTargetPlayer(squad.name, player);
+    } catch (error) {
+      console.error("Failed to update squad target player:", error);
+    }
+  };
+
   return (
-    <div className="">
+    <div className="border border-border-accent rounded-lg p-4 bg-background-elevated">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-text-primary font-bold">
             {squad.name || "Unnamed Squad"}
+            {squad.target_player && (
+              <span className="ml-2 text-sm font-normal text-plasma-400">
+                → {squad.target_player}
+              </span>
+            )}
           </h3>
           <div className="flex gap-2 text-xs text-text-secondary mt-1">
             <span>{squad.role}</span>
@@ -52,6 +71,30 @@ export const SquadCard: React.FC<{ squad: SquadData }> = ({ squad }) => {
         </div>
         <span className="text-plasma-400 font-bold">{squad.units.length}</span>
       </div>
+
+      {/* Player Target Selection */}
+      {availablePlayers.length > 0 && (
+        <div className="mb-4">
+          <label className="text-sm text-text-secondary mb-2 block">
+            Target Player
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {availablePlayers.map((player) => (
+              <button
+                key={player}
+                onClick={() => handlePlayerSelect(player)}
+                className={`px-3 py-1.5 text-xs rounded border transition-colors ${
+                  squad.target_player === player
+                    ? "bg-azure-400 border-azure-400 text-white font-medium"
+                    : "bg-background border-border-accent text-text-secondary hover:border-azure-400 hover:text-azure-400"
+                }`}
+              >
+                {player}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Target Percentage Slider */}
       <div className="mb-4">

@@ -18,6 +18,7 @@ pub struct GameState {
   pub military_squads: Vec<MilitarySquad>,
   pub debug_flags: HashSet<DebugFlag>,
   pub move_screen_position: Option<(i32, i32)>,
+  pub start_location_players: HashMap<(i32, i32), String>,
 }
 
 impl Default for GameState {
@@ -41,6 +42,7 @@ impl Default for GameState {
       .into_iter()
       .collect(),
       move_screen_position: None,
+      start_location_players: HashMap::new(),
     }
   }
 }

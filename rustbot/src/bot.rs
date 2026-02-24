@@ -35,6 +35,50 @@ impl AiModule for RustBot {
     game_state.base_locations =
       expansion_location_stuff::get_base_locations_ordered(game, &mut game_state.debug_lines);
 
+    // Initialize start location player mapping
+    let start_locations = game.get_start_locations();
+    let self_player = game.self_();
+
+    for (index, location) in start_locations.iter().enumerate() {
+      let location_key = (location.x * 32, location.y * 32);
+
+      // Check if this is our starting location
+      let player_name = if let Some(ref player) = self_player {
+        let resource_depots: Vec<Unit> = player
+          .get_units()
+          .iter()
+          .filter(|u| u.get_type().is_resource_depot())
+          .cloned()
+          .collect();
+
+        if let Some(depot) = resource_depots.first() {
+          let depot_tile = depot.get_tile_position();
+          let our_start = start_locations
+            .iter()
+            .min_by_key(|&&start_loc| {
+              let dx = start_loc.x - depot_tile.x;
+              let dy = start_loc.y - depot_tile.y;
+              dx * dx + dy * dy
+            })
+            .copied();
+
+          if our_start == Some(*location) {
+            player.get_name()
+          } else {
+            format!("Unknown Player {}", index + 1)
+          }
+        } else {
+          format!("Unknown Player {}", index + 1)
+        }
+      } else {
+        format!("Unknown Player {}", index + 1)
+      };
+
+      game_state
+        .start_location_players
+        .insert(location_key, player_name);
+    }
+
     for location in &game_state.base_locations {
       match game.can_build_here(None, *location, UnitType::Zerg_Hatchery, false) {
         Ok(can_build) => {
