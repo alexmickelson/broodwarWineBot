@@ -83,7 +83,13 @@ pub fn build_order_enforce_assignments(game: &Game, game_state: &mut GameState) 
         enforce_larvae_assignment(game, game_state);
       }
     }
-    BuildOrderItem::Upgrade(_) => {
+    BuildOrderItem::Upgrade(upgrade) => {
+      researching_stuff::enforce_upgrade_assignment(
+        game,
+        game_state,
+        &game.self_().unwrap(),
+        upgrade,
+      );
       // Upgrades are handled elsewhere
     }
   }

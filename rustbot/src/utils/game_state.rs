@@ -15,6 +15,7 @@ pub struct GameState {
   pub military_squads: Vec<MilitarySquad>,
   pub path_to_enemy_base: Option<Vec<(i32, i32)>>,
   pub debug_flags: HashSet<DebugFlag>,
+  pub position_to_view: Option<(i32, i32)>,
 }
 
 impl Default for GameState {
@@ -72,6 +73,7 @@ impl Default for GameState {
       ]
       .into_iter()
       .collect(),
+      position_to_view: None,
     }
   }
 }

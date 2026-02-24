@@ -40,6 +40,7 @@ pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStat
     .route("/worker-status", get(worker_status_handler))
     .route("/unit-orders", get(unit_orders_handler))
     .route("/military-assignments", get(military_assignments_handler))
+    .route("/military-squad-target", post(update_squad_target_handler))
     .route("/larvae", get(larvae_handler))
     .route("/build-order", get(build_order_handler))
     .route("/map", get(map_handler))
@@ -75,6 +76,43 @@ async fn command_handler(
     }
   }
   "OK"
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateSquadTargetRequest {
+  pub squad_name: String,
+  pub target_path_index: usize,
+}
+
+async fn update_squad_target_handler(
+  State((game_state, _)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+  Json(request): Json<UpdateSquadTargetRequest>,
+) -> impl IntoResponse {
+  if let Ok(mut state) = game_state.lock() {
+    if let Some(squad) = state
+      .military_squads
+      .iter_mut()
+      .find(|s| s.name == request.squad_name)
+    {
+      squad.target_path_index = Some(request.target_path_index);
+
+      // Update target position based on new index
+      if let Some(ref path) = squad.target_path {
+        if request.target_path_index < path.len() {
+          let new_position = path[request.target_path_index];
+          squad.target_position = Some(new_position);
+          // Set position to view so camera will move there
+          state.position_to_view = Some(new_position);
+        }
+      }
+
+      Json(serde_json::json!({ "success": true }))
+    } else {
+      Json(serde_json::json!({ "success": false, "error": "Squad not found" }))
+    }
+  } else {
+    Json(serde_json::json!({ "success": false, "error": "Failed to lock game state" }))
+  }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -262,6 +300,7 @@ pub struct MilitaryUnitInfo {
   pub order: String,
   pub order_target_position: Option<(i32, i32)>,
   pub current_position: (i32, i32),
+  pub target_unit: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -300,6 +339,9 @@ async fn military_assignments_handler(
                 let order = unit.get_order();
                 let order_target_position = unit.get_order_target_position().map(|p| (p.x, p.y));
                 let current_pos = unit.get_position();
+                let target_unit = unit
+                  .get_target()
+                  .map(|target| format!("{:?}", target.get_type()));
 
                 MilitaryUnitInfo {
                   unit_id: *unit_id,
@@ -307,6 +349,7 @@ async fn military_assignments_handler(
                   order: format!("{:?}", order),
                   order_target_position,
                   current_position: (current_pos.x, current_pos.y),
+                  target_unit,
                 }
               })
             })

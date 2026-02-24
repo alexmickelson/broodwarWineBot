@@ -41,6 +41,11 @@ impl AiModule for RustBot {
       return;
     };
 
+    if let Some((x, y)) = locked_state.position_to_view {
+      set_screen_position(game, x, y);
+      locked_state.position_to_view = None;
+    }
+
     update_game_speed(game, &locked_state);
 
     build_order_management::build_order_enforce_assignments(game, &mut locked_state);
@@ -111,7 +116,15 @@ impl AiModule for RustBot {
 
   fn on_unit_complete(&mut self, game: &Game, unit: Unit) {
     if military_management::is_military_unit(&unit) {
-      military_management::assign_unit_to_squad(&game, &unit, &mut self.game_state.lock().unwrap());
+      let Some(player) = game.self_() else {
+        return;
+      };
+      military_management::assign_unit_to_squad(
+        &game,
+        &unit,
+        &player,
+        &mut self.game_state.lock().unwrap(),
+      );
     }
   }
 
@@ -134,6 +147,18 @@ impl RustBot {
       game_state,
       http_callbacks,
     }
+  }
+}
+
+fn set_screen_position(game: &Game, x: i32, y: i32) {
+  let screen_center_x = x - 320;
+  let screen_center_y = y - 240;
+  // SAFETY: rsbwapi uses interior mutability (RefCell) for the command queue.
+  // set_screen_position only adds a command to the queue.
+  // This cast is safe in the single-threaded BWAPI callback context.
+  unsafe {
+    let game_ptr = game as *const Game as *mut Game;
+    (*game_ptr).set_screen_position(Position::new(screen_center_x, screen_center_y));
   }
 }
 

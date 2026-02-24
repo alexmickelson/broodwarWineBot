@@ -34,7 +34,7 @@ pub fn assign_building_to_research_upgrade(
   );
 }
 
-pub fn research_upgrade_onframe(
+pub fn enforce_upgrade_assignment(
   game: &Game,
   game_state: &mut GameState,
   player: &Player,
@@ -42,74 +42,109 @@ pub fn research_upgrade_onframe(
 ) {
   let current_level = player.get_upgrade_level(upgrade_to_build);
   let needed_minerals = upgrade_to_build.mineral_price(current_level);
+  let needed_gas = upgrade_to_build.gas_price(current_level);
 
   game.draw_text_screen(
     (0, 60),
     &format!(
-      "next {:?}, {}/{} minerals",
+      "next {:?}, {}/{} minerals and {}/{} gas",
       upgrade_to_build,
       player.minerals(),
-      needed_minerals
+      needed_minerals,
+      player.gas(),
+      needed_gas
     ),
   );
 
   if player.minerals() < needed_minerals {
     return;
   }
+  if player.gas() < needed_gas {
+    return;
+  }
 
-  // Find the building that can research this upgrade
-  // Map upgrades to their research buildings for Zerg
-  let research_building_type = match upgrade_to_build {
-    // Unit-specific upgrades
-    UpgradeType::Metabolic_Boost => UnitType::Zerg_Spawning_Pool, // Zergling speed
-    UpgradeType::Adrenal_Glands => UnitType::Zerg_Spawning_Pool,  // Zergling attack speed
-    UpgradeType::Pneumatized_Carapace => UnitType::Zerg_Lair,     // Overlord speed
-    UpgradeType::Ventral_Sacs => UnitType::Zerg_Lair,             // Overlord transport
-    UpgradeType::Antennae => UnitType::Zerg_Lair,                 // Overlord sight range
-    UpgradeType::Chitinous_Plating => UnitType::Zerg_Ultralisk_Cavern, // Ultralisk armor
-    UpgradeType::Anabolic_Synthesis => UnitType::Zerg_Ultralisk_Cavern, // Ultralisk speed
-    UpgradeType::Muscular_Augments => UnitType::Zerg_Hydralisk_Den, // Hydralisk speed
-    UpgradeType::Grooved_Spines => UnitType::Zerg_Hydralisk_Den,  // Hydralisk range
-    UpgradeType::Gamete_Meiosis => UnitType::Zerg_Queens_Nest,    // Queen energy
-    UpgradeType::Metasynaptic_Node => UnitType::Zerg_Defiler_Mound, // Defiler energy
-
-    // Attack and armor upgrades (Evolution Chamber)
-    UpgradeType::Zerg_Melee_Attacks => UnitType::Zerg_Evolution_Chamber, // Ground melee attack
-    UpgradeType::Zerg_Missile_Attacks => UnitType::Zerg_Evolution_Chamber, // Ground ranged attack
-    UpgradeType::Zerg_Carapace => UnitType::Zerg_Evolution_Chamber,      // Ground armor
-
-    // Air attack and armor upgrades (Spire/Greater Spire)
-    UpgradeType::Zerg_Flyer_Attacks => UnitType::Zerg_Spire, // Air attack
-    UpgradeType::Zerg_Flyer_Carapace => UnitType::Zerg_Spire, // Air armor
-
-    _ => {
-      game.draw_text_screen(
-        (0, 80),
-        &format!("Unknown research building for {:?}", upgrade_to_build),
-      );
-      return;
-    }
+  let Some(assigned_building) =
+    game_state
+      .building_assignments
+      .iter()
+      .find_map(|(&building_id, assignment)| {
+        if assignment.build_order_index == game_state.build_order_index {
+          let maybe_building = game.get_unit(building_id);
+          let Some(building) = maybe_building else {
+            return None;
+          };
+          Some((building, assignment))
+        } else {
+          None
+        }
+      })
+  else {
+    println!(
+      "No building assigned to research {:?} for current build order index {}",
+      upgrade_to_build, game_state.build_order_index
+    );
+    return;
   };
 
-  let research_building = game.get_all_units().into_iter().find(|u| {
-    u.get_player().get_id() == player.get_id()
-      && u.get_type() == research_building_type
-      && u.is_completed()
-      && !u.is_upgrading()
-  });
+  let (building, _assignment) = assigned_building;
+  if building.is_upgrading() {
+    println!(
+      "{:?} is already researching an upgrade, waiting for it to finish",
+      building.get_type()
+    );
+    // need to remove building assignmenta dn advance build order
+    return;
+  }
 
-  if let Some(building) = research_building {
-    if building.upgrade(upgrade_to_build).is_ok() {
-      println!("Started researching upgrade {:?}", upgrade_to_build);
-      game_state.build_order_index += 1;
+  match building.upgrade(upgrade_to_build) {
+    Ok(true) => {
+      println!(
+        "Started researching {:?} at building {} ({:?})",
+        upgrade_to_build,
+        building.get_id(),
+        building.get_type()
+      );
     }
-  } else {
-    game.draw_text_screen(
-      (0, 80),
-      &format!(
-        "No {:?} available to research upgrade",
-        research_building_type
-      ),
+    Ok(false) => {
+      println!(
+        "Failed to start researching {:?} at building {} ({:?}) for unknown reason",
+        upgrade_to_build,
+        building.get_id(),
+        building.get_type()
+      );
+    }
+    Err(e) => {
+      println!(
+        "Failed to start researching {:?} at building {} ({:?}): {:?}",
+        upgrade_to_build,
+        building.get_id(),
+        building.get_type(),
+        e
+      );
+    }
+  }
+}
+
+pub fn remove_building_upgrade_assignment(game_state: &mut GameState, unit: &Unit) {
+  let unit_id = unit.get_id() as usize;
+  if let Some(assignment) = game_state.building_assignments.get(&unit_id) {
+    if let crate::utils::game_state::BuildingAssignmentType::ResearchUpgrade(upgrade) =
+      assignment.assignment_type
+    {
+      println!(
+        "Finished researching {:?} at building {} ({:?}), removing assignment",
+        upgrade,
+        unit_id,
+        unit.get_type()
+      );
+    }
+  }
+
+  if game_state.building_assignments.remove(&unit_id).is_none() {
+    println!(
+      "No building assignment found for building {} ({:?}) when trying to remove upgrade assignment",
+      unit_id,
+      unit.get_type()
     );
   }
 }

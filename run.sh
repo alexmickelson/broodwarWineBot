@@ -42,6 +42,9 @@ cd scripts
     ./4-configure-bwapi.sh
 cd ..
 
+echo "Setting up BWAPI symlink for local rsbwapi..."
+ln -sf "$SCRIPT_DIR/starcraft" "$SCRIPT_DIR/rustbot/rsbwapi/bwapi_wrapper/bwapi"
+
 echo "Building RustBot..."
 # build-rustbot-debug
 nix develop -c build-rustbot-debug

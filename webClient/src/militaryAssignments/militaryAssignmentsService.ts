@@ -6,6 +6,7 @@ export interface MilitaryUnitInfo {
   order: string;
   order_target_position: [number, number] | null;
   current_position: [number, number];
+  target_unit: string | null;
 }
 
 export interface SquadData {
@@ -29,4 +30,23 @@ export async function fetchMilitaryAssignments(): Promise<MilitaryAssignmentsSna
     throw new Error(`HTTP ${response.status}`);
   }
   return response.json();
+}
+
+export async function updateSquadTargetIndex(
+  squadName: string,
+  targetPathIndex: number,
+): Promise<void> {
+  const response = await fetch(`${BASE_URL}/military-squad-target`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      squad_name: squadName,
+      target_path_index: targetPathIndex,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
 }

@@ -13,6 +13,7 @@ pub mod building_stuff {
 pub mod military {
   pub mod military_management;
   pub mod squad_models;
+  pub mod attack_workers_squad;
 }
 
 pub mod map_utils {
