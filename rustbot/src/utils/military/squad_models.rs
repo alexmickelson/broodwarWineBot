@@ -13,6 +13,7 @@ pub struct MilitarySquad {
   pub target_path_index: Option<usize>,
   pub leader_unit_id: Option<usize>,
   pub required_units_near_leader: usize,
+  pub target_percentage: f32,
   #[serde(skip)]
   pub unit_path_assignments: HashMap<usize, (Vec<(i32, i32)>, usize)>, // (path, current_index)
 }

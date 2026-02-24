@@ -41,6 +41,10 @@ pub async fn start_server(game_state: SharedGameState, callbacks: SharedHttpStat
     .route("/worker-status", get(worker_status_handler))
     .route("/unit-orders", get(unit_orders_handler))
     .route("/military-assignments", get(military_assignments_handler))
+    .route(
+      "/military-assignments/update-target-percentage",
+      post(update_squad_target_percentage_handler),
+    )
     .route("/larvae", get(larvae_handler))
     .route("/build-order", get(build_order_handler))
     .route("/map", get(map_handler))
@@ -218,12 +222,13 @@ async fn larvae_handler(
       for (larva_id, build_order_idx) in &state.larva_responsibilities {
         if let Some(item) = state.build_order.get(*build_order_idx) {
           let detail = match item {
-            BuildOrderItem::Unit { unit_type, base_index } => {
-              match base_index {
-                Some(idx) => format!("{:?} @base{}", unit_type, idx),
-                None => format!("{:?}", unit_type),
-              }
-            }
+            BuildOrderItem::Unit {
+              unit_type,
+              base_index,
+            } => match base_index {
+              Some(idx) => format!("{:?} @base{}", unit_type, idx),
+              None => format!("{:?}", unit_type),
+            },
             BuildOrderItem::Upgrade(upgrade_type) => {
               format!("{:?}", upgrade_type)
             }
@@ -282,6 +287,7 @@ pub struct SquadData {
   pub target_position: Option<(i32, i32)>,
   pub target_path: Option<Vec<(i32, i32)>>,
   pub target_path_index: Option<usize>,
+  pub target_percentage: f32,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -329,6 +335,7 @@ async fn military_assignments_handler(
             target_position: squad.target_position,
             target_path: squad.target_path.clone(),
             target_path_index: squad.target_path_index,
+            target_percentage: squad.target_percentage,
           }
         })
         .collect();
@@ -379,7 +386,10 @@ pub enum BuildOrderItemDTO {
 impl From<&BuildOrderItem> for BuildOrderItemDTO {
   fn from(item: &BuildOrderItem) -> Self {
     match item {
-      BuildOrderItem::Unit { unit_type, base_index } => BuildOrderItemDTO::Unit {
+      BuildOrderItem::Unit {
+        unit_type,
+        base_index,
+      } => BuildOrderItemDTO::Unit {
         unit_type: format!("{:?}", unit_type),
         base_index: *base_index,
       },
@@ -575,5 +585,44 @@ async fn update_debug_flags_handler(
     "OK"
   } else {
     "Error updating debug flags"
+  }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateSquadTargetPercentageRequest {
+  pub squad_name: String,
+  pub target_percentage: f32,
+}
+
+async fn update_squad_target_percentage_handler(
+  State((game_state, _)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
+  Json(req): Json<UpdateSquadTargetPercentageRequest>,
+) -> impl IntoResponse {
+  if let Ok(mut state) = game_state.lock() {
+    if let Some(squad) = state
+      .military_squads
+      .iter_mut()
+      .find(|s| s.name == req.squad_name)
+    {
+      squad.target_percentage = req.target_percentage.clamp(0.0, 1.0);
+      println!(
+        "Updated squad '{}' target percentage to {}",
+        req.squad_name, squad.target_percentage
+      );
+
+      if let Some(ref path) = squad.target_path {
+        if !path.is_empty() {
+          let index = ((path.len() - 1) as f32 * squad.target_percentage).round() as usize;
+          let index = index.min(path.len() - 1);
+          let target_pos = path[index];
+          state.move_screen_position = Some((target_pos.0, target_pos.1 ));
+        }
+      }
+      "OK"
+    } else {
+      "Squad not found"
+    }
+  } else {
+    "Error updating squad target percentage"
   }
 }

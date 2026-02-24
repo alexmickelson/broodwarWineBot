@@ -1,12 +1,41 @@
-import React from "react";
+import React, { useState } from "react";
 import { UnitInfo } from "./UnitInfo";
 import type { SquadData } from "./militaryAssignmentsService";
+import { updateSquadTargetPercentage } from "./militaryAssignmentsService";
 
 export const SquadCard: React.FC<{ squad: SquadData }> = ({ squad }) => {
+  const [localPercentage, setLocalPercentage] = useState(
+    squad.target_percentage,
+  );
+
   const progress =
     squad.target_path && squad.target_path_index
       ? Math.round((squad.target_path_index / squad.target_path.length) * 100)
       : 0;
+
+  const handleSliderChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = parseFloat(e.target.value);
+    setLocalPercentage(newValue);
+
+    try {
+      await updateSquadTargetPercentage(squad.name, newValue);
+    } catch (error) {
+      console.error("Failed to update squad target percentage:", error);
+    }
+  };
+
+  const handleBarClick = async (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const newValue = Math.max(0, Math.min(1, x / rect.width));
+    setLocalPercentage(newValue);
+
+    try {
+      await updateSquadTargetPercentage(squad.name, newValue);
+    } catch (error) {
+      console.error("Failed to update squad target percentage:", error);
+    }
+  };
 
   return (
     <div className="">
@@ -22,6 +51,49 @@ export const SquadCard: React.FC<{ squad: SquadData }> = ({ squad }) => {
           </div>
         </div>
         <span className="text-plasma-400 font-bold">{squad.units.length}</span>
+      </div>
+
+      {/* Target Percentage Slider */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm text-text-secondary">Target Position</label>
+          <span className="text-azure-400 text-sm font-medium">
+            {Math.round(localPercentage * 100)}%
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div
+            className="flex-1 relative cursor-pointer py-2"
+            onClick={handleBarClick}
+          >
+            <div className="h-1.5 bg-background-elevated rounded-full border border-border-accent">
+              {/* Squad's actual percentage from server */}
+              <div
+                className="h-full bg-text-secondary/30 transition-all duration-300 rounded-full pointer-events-none absolute inset-0"
+                style={{ width: `${squad.target_percentage * 100}%` }}
+              />
+              {/* User's local percentage */}
+              <div
+                className="h-full bg-azure-400 transition-all duration-150 rounded-full pointer-events-none relative"
+                style={{ width: `${localPercentage * 100}%` }}
+              />
+            </div>
+            {/* Draggable button/handle */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-azure-400 border-2 border-white rounded-full shadow-lg pointer-events-none transition-all duration-150"
+              style={{ left: `calc(${localPercentage * 100}% - 0.5rem)` }}
+            />
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={localPercentage}
+              onChange={handleSliderChange}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+          </div>
+        </div>
       </div>
 
       {squad.target_position && (

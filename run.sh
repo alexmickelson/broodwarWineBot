@@ -42,6 +42,16 @@ cd scripts
     ./4-configure-bwapi.sh
 cd ..
 
+echo "Setting up BWAPI headers for rsbwapi..."
+BWAPI_WRAPPER_DIR="$SCRIPT_DIR/rustbot/rsbwapi/bwapi_wrapper"
+BWAPI_HEADERS_SRC="$SCRIPT_DIR/starcraft/BWAPI"
+
+# Create symlink to BWAPI headers if not already present
+if [ ! -e "$BWAPI_WRAPPER_DIR/bwapi" ]; then
+    echo "Creating symlink to BWAPI headers..."
+    ln -s "$BWAPI_HEADERS_SRC" "$BWAPI_WRAPPER_DIR/bwapi"
+fi
+
 echo "Building RustBot..."
 # build-rustbot-debug
 nix develop -c build-rustbot-debug

@@ -4,6 +4,9 @@
 *.pdb
 Cargo.lock
 
+# BWAPI headers symlink
+rsbwapi/bwapi_wrapper/bwapi
+
 # IDE
 .vscode/
 .idea/

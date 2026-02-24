@@ -294,10 +294,17 @@ fn enforce_gathering_assignment(
           e
         );
 
-        // If unreachable, try to assign to another resource
         if e == Error::Unreachable_Location {
           println!(
             "Worker {} cannot reach resource {}, attempting reassignment",
+            worker.get_id(),
+            assigned_mineral_id
+          );
+          return true; // Signal to clear this assignment so it can be reassigned
+        }
+        if e == Error::Unit_Does_Not_Exist {
+          println!(
+            "Worker {} assigned to non-existent resource {}, clearing assignment",
             worker.get_id(),
             assigned_mineral_id
           );

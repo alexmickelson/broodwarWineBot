@@ -17,6 +17,7 @@ pub struct GameState {
   pub larva_responsibilities: HashMap<usize, usize>,
   pub military_squads: Vec<MilitarySquad>,
   pub debug_flags: HashSet<DebugFlag>,
+  pub move_screen_position: Option<(i32, i32)>,
 }
 
 impl Default for GameState {
@@ -39,6 +40,7 @@ impl Default for GameState {
       ]
       .into_iter()
       .collect(),
+      move_screen_position: None,
     }
   }
 }

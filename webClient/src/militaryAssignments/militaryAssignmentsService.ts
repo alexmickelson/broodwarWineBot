@@ -16,6 +16,7 @@ export interface SquadData {
   target_position: [number, number] | null;
   target_path: Array<[number, number]> | null;
   target_path_index: number | null;
+  target_percentage: number;
 }
 
 export interface MilitaryAssignmentsSnapshot {
@@ -29,4 +30,26 @@ export async function fetchMilitaryAssignments(): Promise<MilitaryAssignmentsSna
     throw new Error(`HTTP ${response.status}`);
   }
   return response.json();
+}
+
+export async function updateSquadTargetPercentage(
+  squadName: string,
+  targetPercentage: number,
+): Promise<void> {
+  const response = await fetch(
+    `${BASE_URL}/military-assignments/update-target-percentage`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        squad_name: squadName,
+        target_percentage: targetPercentage,
+      }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
 }

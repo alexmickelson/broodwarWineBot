@@ -11,8 +11,6 @@ fn get_player_start_location(game: &Game, player: &Player) -> Option<TilePositio
   // Get all starting locations from the map
   let start_locations = game.get_start_locations();
 
-
-  
   // Get player's resource depots (starting base)
   let resource_depots: Vec<Unit> = player
     .get_units()
@@ -20,7 +18,7 @@ fn get_player_start_location(game: &Game, player: &Player) -> Option<TilePositio
     .filter(|u| u.get_type().is_resource_depot())
     .cloned()
     .collect();
-  
+
   if let Some(depot) = resource_depots.first() {
     // Find the start location closest to the player's first depot
     let depot_tile = depot.get_tile_position();
@@ -38,10 +36,7 @@ fn get_player_start_location(game: &Game, player: &Player) -> Option<TilePositio
   }
 }
 
-fn get_average_resource_position_near_location(
-  game: &Game,
-  location: &TilePosition,
-) -> (i32, i32) {
+fn get_average_resource_position_near_location(game: &Game, location: &TilePosition) -> (i32, i32) {
   const SEARCH_RADIUS: i32 = 800;
   let location_pixels = (location.x * 32, location.y * 32);
   let mut sum_x = 0;
@@ -92,6 +87,7 @@ pub fn attack_workers_squad(game: &Game, self_player: &Player) -> MilitarySquad 
       target_path_index: None,
       leader_unit_id: None,
       required_units_near_leader: 5,
+      target_percentage: 0.5,
       unit_path_assignments: std::collections::HashMap::new(),
     };
   };
@@ -110,6 +106,7 @@ pub fn attack_workers_squad(game: &Game, self_player: &Player) -> MilitarySquad 
       target_path_index: None,
       leader_unit_id: None,
       required_units_near_leader: 5,
+      target_percentage: 0.5,
       unit_path_assignments: std::collections::HashMap::new(),
     };
   };
@@ -140,6 +137,7 @@ pub fn attack_workers_squad(game: &Game, self_player: &Player) -> MilitarySquad 
     target_path_index: Some(goal),
     leader_unit_id: None,
     required_units_near_leader: 5,
+    target_percentage: 0.5,
     unit_path_assignments: std::collections::HashMap::new(),
   }
 }
@@ -157,7 +155,12 @@ pub fn attack_nearby_worker(
     return true;
   }
 
-  if avoid_enemy_movement_utils::handle_threat_avoidance(game, unit, None, ThreatAvoidanceMode::Aggressive) {
+  if avoid_enemy_movement_utils::handle_threat_avoidance(
+    game,
+    unit,
+    None,
+    ThreatAvoidanceMode::Aggressive,
+  ) {
     return true;
   }
 
@@ -165,8 +168,12 @@ pub fn attack_nearby_worker(
 }
 
 fn can_attack_worker_close_to_unit(game: &Game, unit: &Unit) -> bool {
-  let workers_close_to_this_unit =
-    avoid_enemy_movement_utils::get_enemies_within(game, unit.get_position(), 120.0, unit.get_player().get_id());
+  let workers_close_to_this_unit = avoid_enemy_movement_utils::get_enemies_within(
+    game,
+    unit.get_position(),
+    120.0,
+    unit.get_player().get_id(),
+  );
 
   if let Some(closest_worker) = workers_close_to_this_unit.first() {
     let unit_order = unit.get_order();
@@ -258,7 +265,7 @@ pub fn get_worker_enemies_within(
   player_id: usize,
 ) -> Vec<Unit> {
   let radius_squared = radius * radius;
-  
+
   // Get all enemy attacking units (buildings and units that can attack)
   let enemy_attackers: Vec<Unit> = game
     .get_all_units()
@@ -273,7 +280,7 @@ pub fn get_worker_enemies_within(
       ground_weapon != WeaponType::None || air_weapon != WeaponType::None
     })
     .collect();
-  
+
   let mut workers: Vec<(Unit, f32, bool)> = game
     .get_all_units()
     .into_iter()
@@ -303,14 +310,14 @@ pub fn get_worker_enemies_within(
           } else {
             attacker_type.air_weapon().max_range() as f32
           };
-          
+
           let adx = (attacker_pos.x - enemy_pos.x) as f32;
           let ady = (attacker_pos.y - enemy_pos.y) as f32;
           let dist_to_attacker = (adx * adx + ady * ady).sqrt();
-          
+
           dist_to_attacker <= weapon_range + 32.0 // Add small buffer
         });
-        
+
         Some((u, distance_squared, in_danger))
       } else {
         None
@@ -321,12 +328,12 @@ pub fn get_worker_enemies_within(
   // Sort by: 1) not in danger first, 2) then by distance
   workers.sort_by(|a, b| {
     match (a.2, b.2) {
-      (false, true) => std::cmp::Ordering::Less,  // a is safe, b is in danger
+      (false, true) => std::cmp::Ordering::Less, // a is safe, b is in danger
       (true, false) => std::cmp::Ordering::Greater, // a is in danger, b is safe
       _ => a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal), // same safety, sort by distance
     }
   });
-  
+
   workers.into_iter().map(|(u, _, _)| u).collect()
 }
 
@@ -440,7 +447,7 @@ pub fn update_attack_workers_squad(game: &Game, squad: &mut MilitarySquad) {
       return;
     }
   }
-  
+
   // Update target position along path if needed
   if let (Some(ref path), Some(index)) = (&squad.target_path, squad.target_path_index) {
     if index < path.len() {

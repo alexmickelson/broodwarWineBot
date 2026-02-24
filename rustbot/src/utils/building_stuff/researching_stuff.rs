@@ -136,13 +136,30 @@ pub fn enforce_research_assignment(
     return;
   };
 
-  if building_unit.upgrade(upgrade_to_build).is_ok() {
-    // println!("Started researching upgrade {:?}", upgrade_to_build);
-    // game_state.build_order_index += 1;
-  } else {
-    game.draw_text_screen(
-      (0, 80),
-      &format!("Failed to start researching upgrade {:?}", upgrade_to_build),
-    );
+  match building_unit.upgrade(upgrade_to_build) {
+    Ok(true) => {
+      println!(
+        "Started researching upgrade {:?} at building {}",
+        upgrade_to_build, building_id
+      );
+    }
+    Ok(false) => {
+      game.draw_text_screen(
+        (0, 80),
+        &format!(
+          "Failed to start researching upgrade {:?} at building {}, unknown reason",
+          upgrade_to_build, building_id
+        ),
+      );
+    }
+    Err(e) => {
+      game.draw_text_screen(
+        (0, 80),
+        &format!(
+          "Failed to start researching upgrade {:?} at building {}, error: {:?}",
+          upgrade_to_build, building_id, e
+        ),
+      );
+    }
   }
 }

@@ -63,6 +63,7 @@ pub fn create_squad(
       target_path_index: None,
       leader_unit_id: None,
       required_units_near_leader: 5,
+      target_percentage: 0.5,
       unit_path_assignments: std::collections::HashMap::new(),
     },
     SquadRole::Defend => {
@@ -85,6 +86,7 @@ pub fn create_squad(
         target_path_index: None,
         leader_unit_id: None,
         required_units_near_leader: 5,
+        target_percentage: 0.5,
         unit_path_assignments: std::collections::HashMap::new(),
       }
     }

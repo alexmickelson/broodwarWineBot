@@ -63,6 +63,14 @@ impl AiModule for RustBot {
 
     update_game_speed(game, &locked_state);
 
+    if let Some(position) = locked_state.move_screen_position.take() {
+      let screen_pos = (position.0 - 320, position.1 - 240);
+      unsafe {
+        let game_ptr = game as *const Game as *mut Game;
+        (*game_ptr).set_screen_position(screen_pos);
+      }
+    }
+
     build_order_management::build_order_enforce_assignments(game, &mut locked_state);
 
     worker_management::update_assignments(game, &mut locked_state);
@@ -269,9 +277,7 @@ fn draw_debug_lines(game: &Game, game_state: &GameState) {
       DebugFlag::ShowMilitaryAssignments => {
         military_management::draw_military_assignments(game, &game_state);
       }
-      DebugFlag::ShowPathToEnemyBase => {
-    
-      }
+      DebugFlag::ShowPathToEnemyBase => {}
       DebugFlag::ShowRegions => {
         region_stuff::draw_region_boxes(game);
       }
