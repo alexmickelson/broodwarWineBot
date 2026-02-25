@@ -727,30 +727,46 @@ async fn update_squad_target_player_handler(
   Json(req): Json<UpdateSquadTargetPlayerRequest>,
 ) -> &'static str {
   if let Ok(mut state) = game_state.lock() {
-    // Find the target location first
-    let target_location = state
-      .start_location_players
+    // Find and clone the player info from all_players
+    let player_info = state
+      .all_players
       .iter()
-      .find(|(_, name)| **name == req.target_player)
-      .map(|(pos, _)| *pos);
+      .find(|p| p.player_name == req.target_player)
+      .cloned();
 
-    if let Some(target_pos) = target_location {
-      // Now find and update the squad
+    if let Some(player) = player_info {
       if let Some(squad) = state
         .military_squads
         .iter_mut()
         .find(|s| s.name == req.squad_name)
       {
-        // Set the target position
-        squad.target_position = Some(target_pos);
+        // Set the path from the player info
+        squad.target_path = player.path_from_my_base.clone();
 
-        // Clear existing path so it gets recalculated
-        squad.target_path = None;
-        squad.target_path_index = None;
+        // Set target position based on path or starting location
+        if let Some(ref path) = squad.target_path {
+          if !path.is_empty() {
+            // Set target to the current percentage of the path
+            let index = ((path.len() - 1) as f32 * squad.target_percentage).round() as usize;
+            let index = index.min(path.len() - 1);
+            squad.target_position = Some(path[index]);
+            squad.target_path_index = Some(index);
+          } else {
+            squad.target_position = Some(player.starting_location);
+            squad.target_path_index = None;
+          }
+        } else {
+          // No path available, use starting location
+          squad.target_position = Some(player.starting_location);
+          squad.target_path_index = None;
+        }
 
         println!(
-          "Updated squad '{}' to target player '{}' at {:?}",
-          req.squad_name, req.target_player, target_pos
+          "Updated squad '{}' to target player '{}' at {:?} (path: {} points)",
+          req.squad_name,
+          req.target_player,
+          squad.target_position,
+          squad.target_path.as_ref().map(|p| p.len()).unwrap_or(0)
         );
 
         "OK"
@@ -758,7 +774,7 @@ async fn update_squad_target_player_handler(
         "Squad not found"
       }
     } else {
-      "Target player location not found"
+      "Target player not found"
     }
   } else {
     "Error updating squad target player"

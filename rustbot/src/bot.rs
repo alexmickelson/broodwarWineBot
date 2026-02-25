@@ -39,39 +39,39 @@ impl AiModule for RustBot {
     let start_locations = game.get_start_locations();
     let self_player = game.self_();
 
+    // Find our starting location
+    let my_starting_position = self_player
+      .as_ref()
+      .and_then(|player| start_locations.get(player.get_id() as usize))
+      .copied();
+
     for (index, location) in start_locations.iter().enumerate() {
       let location_key = (location.x * 32, location.y * 32);
 
       // Check if this is our starting location
+      let is_our_location = my_starting_position == Some(*location);
       let player_name = if let Some(ref player) = self_player {
-        let resource_depots: Vec<Unit> = player
-          .get_units()
-          .iter()
-          .filter(|u| u.get_type().is_resource_depot())
-          .cloned()
-          .collect();
-
-        if let Some(depot) = resource_depots.first() {
-          let depot_tile = depot.get_tile_position();
-          let our_start = start_locations
-            .iter()
-            .min_by_key(|&&start_loc| {
-              let dx = start_loc.x - depot_tile.x;
-              let dy = start_loc.y - depot_tile.y;
-              dx * dx + dy * dy
-            })
-            .copied();
-
-          if our_start == Some(*location) {
-            player.get_name()
-          } else {
-            format!("Unknown Player {}", index + 1)
-          }
+        if is_our_location {
+          player.get_name()
         } else {
           format!("Unknown Player {}", index + 1)
         }
       } else {
         format!("Unknown Player {}", index + 1)
+      };
+
+      // Calculate path from our base to this location (if it's not our base)
+      let path_from_my_base = if !is_our_location && my_starting_position.is_some() {
+        let my_pos = my_starting_position.unwrap();
+        let my_pixel_pos = (my_pos.x * 32, my_pos.y * 32);
+        crate::utils::map_utils::pathing::get_path_between_points(
+          game,
+          my_pixel_pos,
+          location_key,
+          Some(false), // ground units
+        )
+      } else {
+        None
       };
 
       // Add to start_location_players map (for backward compatibility)
@@ -85,7 +85,7 @@ impl AiModule for RustBot {
         .push(crate::utils::game_state::PlayerInfo {
           starting_location: location_key,
           player_name,
-          path_from_my_base: None,
+          path_from_my_base,
         });
     }
 
