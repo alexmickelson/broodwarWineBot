@@ -8,10 +8,8 @@ use crate::utils::{
 use rsbwapi::*;
 
 fn get_player_start_location(game: &Game, player: &Player) -> Option<TilePosition> {
-  // Get all starting locations from the map
   let start_locations = game.get_start_locations();
 
-  // Get player's resource depots (starting base)
   let resource_depots: Vec<Unit> = player
     .get_units()
     .iter()
@@ -20,7 +18,6 @@ fn get_player_start_location(game: &Game, player: &Player) -> Option<TilePositio
     .collect();
 
   if let Some(depot) = resource_depots.first() {
-    // Find the start location closest to the player's first depot
     let depot_tile = depot.get_tile_position();
     start_locations
       .iter()

@@ -35,7 +35,7 @@ impl AiModule for RustBot {
     game_state.base_locations =
       expansion_location_stuff::get_base_locations_ordered(game, &mut game_state.debug_lines);
 
-    // Initialize start location player mapping
+    // Initialize all_players list with start location information
     let start_locations = game.get_start_locations();
     let self_player = game.self_();
 
@@ -74,9 +74,19 @@ impl AiModule for RustBot {
         format!("Unknown Player {}", index + 1)
       };
 
+      // Add to start_location_players map (for backward compatibility)
       game_state
         .start_location_players
-        .insert(location_key, player_name);
+        .insert(location_key, player_name.clone());
+
+      // Add to all_players list
+      game_state
+        .all_players
+        .push(crate::utils::game_state::PlayerInfo {
+          starting_location: location_key,
+          player_name,
+          path_from_my_base: None,
+        });
     }
 
     for location in &game_state.base_locations {

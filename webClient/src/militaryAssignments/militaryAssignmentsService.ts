@@ -55,8 +55,14 @@ export async function updateSquadTargetPercentage(
   }
 }
 
+export interface PlayerLocationInfo {
+  starting_location: [number, number];
+  player_name: string;
+  path_from_my_base: Array<[number, number]> | null;
+}
+
 export interface StartLocationsSnapshot {
-  locations: Record<string, [number, number]>;
+  locations: PlayerLocationInfo[];
   frame_count: number;
 }
 
@@ -66,7 +72,7 @@ export async function fetchStartLocations(): Promise<string[]> {
     throw new Error(`HTTP ${response.status}`);
   }
   const data: StartLocationsSnapshot = await response.json();
-  return Object.keys(data.locations);
+  return data.locations.map((loc) => loc.player_name);
 }
 
 export async function updateSquadTargetPlayer(

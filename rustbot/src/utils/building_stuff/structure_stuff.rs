@@ -64,7 +64,10 @@ fn assign_building_to_morph_into_building(
     .build_order
     .get(current_build_idx)
     .and_then(|item| {
-      if let crate::utils::build_orders::build_order_item::BuildOrderItem::Unit { base_index, .. } = item {
+      if let crate::utils::build_orders::build_order_item::BuildOrderItem::Unit {
+        base_index, ..
+      } = item
+      {
         *base_index
       } else {
         None
@@ -72,7 +75,8 @@ fn assign_building_to_morph_into_building(
     });
 
   // Find all buildings of the required type
-  let all_buildings_of_type: Vec<_> = game.get_all_units()
+  let all_buildings_of_type: Vec<_> = game
+    .get_all_units()
     .into_iter()
     .filter(|u| {
       u.get_type() == builder_type
@@ -103,13 +107,16 @@ fn assign_building_to_morph_into_building(
     .filter(|u| game_state.building_assignments.contains_key(&u.get_id()))
     .collect();
 
-  println!("  {} completed are already assigned", assigned_completed.len());
+  println!(
+    "  {} completed are already assigned",
+    assigned_completed.len()
+  );
 
   // Helper function to find closest building to a base location
   let find_closest_to_base = |buildings: Vec<&Unit>, base_idx: usize| -> Option<Unit> {
     let base_tile = game_state.base_locations.get(base_idx)?;
     let base_pos = Position::new(base_tile.x * 32 + 64, base_tile.y * 32 + 48); // Center of hatchery (4x3 tiles)
-    
+
     buildings
       .into_iter()
       .filter(|u| !game_state.building_assignments.contains_key(&u.get_id()))
@@ -125,14 +132,13 @@ fn assign_building_to_morph_into_building(
   // First try to find a completed, unassigned building at the preferred base
   let building_of_type = if let Some(idx) = base_index {
     println!("  Looking for building at base {}", idx);
-    find_closest_to_base(completed_buildings.clone(), idx)
-      .or_else(|| {
-        println!("  No completed building at preferred base, trying any completed building");
-        completed_buildings
-          .into_iter()
-          .find(|u| !game_state.building_assignments.contains_key(&u.get_id()))
-          .cloned()
-      })
+    find_closest_to_base(completed_buildings.clone(), idx).or_else(|| {
+      println!("  No completed building at preferred base, trying any completed building");
+      completed_buildings
+        .into_iter()
+        .find(|u| !game_state.building_assignments.contains_key(&u.get_id()))
+        .cloned()
+    })
   } else {
     completed_buildings
       .into_iter()
@@ -146,26 +152,28 @@ fn assign_building_to_morph_into_building(
       .iter()
       .filter(|u| !u.is_completed())
       .collect();
-    
+
     println!("  {} are uncompleted", uncompleted_buildings.len());
-    
+
     let assigned_uncompleted: Vec<_> = uncompleted_buildings
       .iter()
       .filter(|u| game_state.building_assignments.contains_key(&u.get_id()))
       .collect();
-    
-    println!("  {} uncompleted are already assigned", assigned_uncompleted.len());
-    
+
+    println!(
+      "  {} uncompleted are already assigned",
+      assigned_uncompleted.len()
+    );
+
     if let Some(idx) = base_index {
       println!("  Looking for uncompleted building at base {}", idx);
-      find_closest_to_base(uncompleted_buildings.clone(), idx)
-        .or_else(|| {
-          println!("  No uncompleted building at preferred base, trying any uncompleted building");
-          uncompleted_buildings
-            .into_iter()
-            .find(|u| !game_state.building_assignments.contains_key(&u.get_id()))
-            .cloned()
-        })
+      find_closest_to_base(uncompleted_buildings.clone(), idx).or_else(|| {
+        println!("  No uncompleted building at preferred base, trying any uncompleted building");
+        uncompleted_buildings
+          .into_iter()
+          .find(|u| !game_state.building_assignments.contains_key(&u.get_id()))
+          .cloned()
+      })
     } else {
       uncompleted_buildings
         .into_iter()
@@ -219,7 +227,10 @@ fn assign_drone_to_build_building(
     .build_order
     .get(current_build_idx)
     .and_then(|item| {
-      if let crate::utils::build_orders::build_order_item::BuildOrderItem::Unit { base_index, .. } = item {
+      if let crate::utils::build_orders::build_order_item::BuildOrderItem::Unit {
+        base_index, ..
+      } = item
+      {
         *base_index
       } else {
         None
@@ -290,24 +301,27 @@ pub fn enforce_structure_assignment(game: &Game, game_state: &mut GameState) {
   };
 
   let current_build_idx = game_state.build_order_index;
-  
+
   // Get the building type we're trying to build
   let unit_type = match game_state.build_order.get(current_build_idx) {
-    Some(crate::utils::build_orders::build_order_item::BuildOrderItem::Unit { unit_type, .. }) => *unit_type,
+    Some(crate::utils::build_orders::build_order_item::BuildOrderItem::Unit {
+      unit_type, ..
+    }) => *unit_type,
     _ => return,
   };
 
   // Check if there's a building assigned to this build order index (for morphing buildings)
-  let building_assigned_for_current_index = game_state
-    .building_assignments
-    .iter()
-    .find_map(|(&building_id, assignment)| {
-      if assignment.build_order_index == current_build_idx {
-        Some((building_id, game.get_unit(building_id)))
-      } else {
-        None
-      }
-    });
+  let building_assigned_for_current_index =
+    game_state
+      .building_assignments
+      .iter()
+      .find_map(|(&building_id, assignment)| {
+        if assignment.build_order_index == current_build_idx {
+          Some((building_id, game.get_unit(building_id)))
+        } else {
+          None
+        }
+      });
 
   if let Some((_building_id, Some(building_unit))) = building_assigned_for_current_index {
     let needed_minerals = unit_type.mineral_price();
@@ -339,16 +353,17 @@ pub fn enforce_structure_assignment(game: &Game, game_state: &mut GameState) {
   }
 
   // Check if there's a worker assigned to this build order index
-  let worker_assigned_for_current_index = game_state
-    .worker_assignments
-    .iter()
-    .find_map(|(&worker_id, assignment)| {
-      if assignment.build_order_index == Some(current_build_idx) {
-        game.get_unit(worker_id)
-      } else {
-        None
-      }
-    });
+  let worker_assigned_for_current_index =
+    game_state
+      .worker_assignments
+      .iter()
+      .find_map(|(&worker_id, assignment)| {
+        if assignment.build_order_index == Some(current_build_idx) {
+          game.get_unit(worker_id)
+        } else {
+          None
+        }
+      });
 
   if worker_assigned_for_current_index.is_none() {
     game.draw_text_screen(
@@ -359,6 +374,8 @@ pub fn enforce_structure_assignment(game: &Game, game_state: &mut GameState) {
       )
       .as_str(),
     );
-    crate::utils::build_order_management::make_assignment_for_current_build_order_item(game, game_state);
+    crate::utils::build_order_management::make_assignment_for_current_build_order_item(
+      game, game_state,
+    );
   }
 }

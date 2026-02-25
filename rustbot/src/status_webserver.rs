@@ -625,8 +625,15 @@ async fn update_debug_flags_handler(
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct PlayerLocationInfo {
+  pub starting_location: (i32, i32),
+  pub player_name: String,
+  pub path_from_my_base: Option<Vec<(i32, i32)>>,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct StartLocationsSnapshot {
-  pub locations: HashMap<String, (i32, i32)>,
+  pub locations: Vec<PlayerLocationInfo>,
   pub frame_count: i32,
 }
 
@@ -634,19 +641,26 @@ async fn start_locations_handler(
   State((game_state, _)): State<(SharedGameState, SharedHttpStatusCallbacks)>,
 ) -> impl IntoResponse {
   if let Ok(state) = game_state.lock() {
-    let locations: HashMap<String, (i32, i32)> = state
-      .start_location_players
+    let mut locations: Vec<PlayerLocationInfo> = state
+      .all_players
       .iter()
-      .map(|(pos, name)| (name.clone(), *pos))
+      .map(|player_info| PlayerLocationInfo {
+        starting_location: player_info.starting_location,
+        player_name: player_info.player_name.clone(),
+        path_from_my_base: player_info.path_from_my_base.clone(),
+      })
       .collect();
-    
+
+    // Sort by player name for consistency
+    locations.sort_by(|a, b| a.player_name.cmp(&b.player_name));
+
     Json(StartLocationsSnapshot {
       locations,
       frame_count: 0,
     })
   } else {
     Json(StartLocationsSnapshot {
-      locations: HashMap::new(),
+      locations: Vec::new(),
       frame_count: -1,
     })
   }
@@ -669,18 +683,29 @@ async fn update_squad_target_percentage_handler(
       .find(|s| s.name == req.squad_name)
     {
       squad.target_percentage = req.target_percentage.clamp(0.0, 1.0);
+
+      let screen_position = if let Some(ref path) = squad.target_path {
+        if !path.is_empty() {
+          let index = ((path.len() - 1) as f32 * squad.target_percentage).round() as usize;
+          let index = index.min(path.len() - 1);
+          let target_pos = path[index];
+          squad.target_position = Some(target_pos);
+          squad.target_path_index = Some(index);
+          Some((target_pos.0, target_pos.1))
+        } else {
+          None
+        }
+      } else {
+        None
+      };
+
       println!(
         "Updated squad '{}' target percentage to {}",
         req.squad_name, squad.target_percentage
       );
 
-      if let Some(ref path) = squad.target_path {
-        if !path.is_empty() {
-          let index = ((path.len() - 1) as f32 * squad.target_percentage).round() as usize;
-          let index = index.min(path.len() - 1);
-          let target_pos = path[index];
-          state.move_screen_position = Some((target_pos.0, target_pos.1));
-        }
+      if let Some(pos) = screen_position {
+        state.move_screen_position = Some(pos);
       }
       "OK"
     } else {
@@ -718,7 +743,7 @@ async fn update_squad_target_player_handler(
       {
         // Set the target position
         squad.target_position = Some(target_pos);
-        
+
         // Clear existing path so it gets recalculated
         squad.target_path = None;
         squad.target_path_index = None;

@@ -763,21 +763,18 @@ fn handle_combat_at_target(game: &Game, unit: &Unit, squad: &MilitarySquad, targ
     })
     .collect();
 
-  // Sort by priority (lower number = higher priority)
   prioritized_enemies.sort_by_key(|(_, priority)| *priority);
 
-  // Attack highest priority target if available
   if let Some((target_enemy, priority)) = prioritized_enemies.first() {
     if *priority == 4 {
-      // If target is a building and unit is currently attacking, don't switch commands
       let unit_order = unit.get_order();
       if unit_order == Order::AttackUnit || unit_order == Order::AttackMove {
         return;
       }
-      // If not attacking, attack move to its position
       let target_pos = target_enemy.get_position();
       attack_move_to_position(unit, target_pos);
     } else {
+      println!("Unit {} attacking enemy {} with priority {}", unit.get_id(), target_enemy.get_id(), priority);
       attack_unit_if_needed(unit, target_enemy);
     }
     return;

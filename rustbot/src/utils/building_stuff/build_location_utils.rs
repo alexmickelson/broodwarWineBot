@@ -249,9 +249,11 @@ pub fn find_extractor_location(
   // 1. Is reasonably close to the specified base (or any base if None)
   // 2. Doesn't already have an extractor on it
   // 3. Can be built on
-  
+
   let target_base_pos = if let Some(idx) = base_index {
-    base_locations.get(idx).map(|tile| Position::new(tile.x * 32 + 16, tile.y * 32 + 16))
+    base_locations
+      .get(idx)
+      .map(|tile| Position::new(tile.x * 32 + 16, tile.y * 32 + 16))
   } else {
     None
   };
@@ -273,7 +275,7 @@ pub fn find_extractor_location(
     .iter()
     .filter(|geyser| {
       let geyser_pos = geyser.get_position();
-      
+
       // If a specific base is requested, only check that base
       if let Some(base_pos) = target_base_pos {
         let dx = (base_pos.x - geyser_pos.x) as f32;
@@ -281,7 +283,7 @@ pub fn find_extractor_location(
         let distance = (dx * dx + dy * dy).sqrt();
         return distance <= 12.0 * 32.0;
       }
-      
+
       // Otherwise check if geyser is near any of our bases
       resource_depots.iter().any(|depot| {
         let depot_pos = depot.get_position();

@@ -6,10 +6,18 @@ use std::sync::{Arc, Mutex};
 use crate::utils::build_orders::build_order_item::BuildOrderItem;
 use crate::utils::military::squad_models::MilitarySquad;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerInfo {
+  pub starting_location: (i32, i32),
+  pub player_name: String,
+  pub path_from_my_base: Option<Vec<(i32, i32)>>,
+}
+
 pub struct GameState {
   pub worker_assignments: HashMap<usize, WorkerAssignment>,
   pub building_assignments: HashMap<usize, BuildingAssignment>,
   pub base_locations: Vec<TilePosition>,
+  pub all_players: Vec<PlayerInfo>,
   pub debug_lines: Vec<(Position, Position, Color)>,
   pub game_speed: i32,
   pub build_order: Vec<BuildOrderItem>,
@@ -27,6 +35,7 @@ impl Default for GameState {
       worker_assignments: HashMap::new(),
       building_assignments: HashMap::new(),
       base_locations: vec![],
+      all_players: vec![],
       debug_lines: vec![],
       // game_speed: -1,
       game_speed: 1,

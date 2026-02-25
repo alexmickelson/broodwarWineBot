@@ -23,11 +23,7 @@ export const SquadCard: React.FC<{
     const newValue = parseFloat(e.target.value);
     setLocalPercentage(newValue);
 
-    try {
-      await updateSquadTargetPercentage(squad.name, newValue);
-    } catch (error) {
-      console.error("Failed to update squad target percentage:", error);
-    }
+    await updateSquadTargetPercentage(squad.name, newValue);
   };
 
   const handleBarClick = async (e: React.MouseEvent<HTMLDivElement>) => {
@@ -36,19 +32,11 @@ export const SquadCard: React.FC<{
     const newValue = Math.max(0, Math.min(1, x / rect.width));
     setLocalPercentage(newValue);
 
-    try {
-      await updateSquadTargetPercentage(squad.name, newValue);
-    } catch (error) {
-      console.error("Failed to update squad target percentage:", error);
-    }
+    await updateSquadTargetPercentage(squad.name, newValue);
   };
 
   const handlePlayerSelect = async (player: string) => {
-    try {
-      await updateSquadTargetPlayer(squad.name, player);
-    } catch (error) {
-      console.error("Failed to update squad target player:", error);
-    }
+    await updateSquadTargetPlayer(squad.name, player);
   };
 
   return (
