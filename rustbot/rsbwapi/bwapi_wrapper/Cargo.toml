@@ -1,0 +1,26 @@
+[package]
+name = "bwapi_wrapper"
+version.workspace = true
+authors = ["Dennis Waldherr <bytekeeper@mailbox.org>"]
+edition = "2024"
+homepage = "https://github.com/Bytekeeper/rsbwapi/"
+license = "LGPL-3.0-or-later"
+repository = "https://github.com/Bytekeeper/rsbwapi/"
+description = "Bindings to BWAPI"
+exclude = ["bwapi/apps", "bwapi/Documentation", "bwapi/Release_Binary"]
+readme = "README.md"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package.metadata.docs.rs]
+targets = ["x86_64-pc-windows-msvc"]
+
+[dependencies]
+num-traits.workspace = true
+num-derive.workspace = true
+derive_more.workspace = true
+
+
+[build-dependencies]
+bindgen = "0.72"
